@@ -1,3 +1,6 @@
+// lib/services/presence_service.dart
+
+import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/providers/auth_providers.dart';
@@ -6,21 +9,31 @@ class PresenceService {
   final FirebaseDatabase _database;
   final Ref _ref;
 
+  StreamSubscription? _connectionSubscription;
+  DatabaseReference? _userStatusRef;
+  ProviderSubscription? _userSubscription;
+
   PresenceService(this._database, this._ref) {
     _init();
   }
 
   void _init() {
-    _ref.listen(currentUserProvider, (previous, next) {
-      final user = next.asData?.value;
-      if (user != null && user.sessionToken != null) {
-        _updateUserPresence(user.uid, user.sessionToken!);
+    // Listen for changes in the authenticated user's state.
+    _userSubscription = _ref.listen(currentUserProvider, (_, next) {
+      // **THE FIX IS HERE:**
+      // We now safely handle the AsyncValue. We only proceed if the state
+      // has data (i.e., is not loading or in an error state).
+      if (next.hasValue) {
+        final user = next.value;
+        if (user != null && user.sessionToken != null) {
+          _goOnline(user.uid, user.sessionToken!);
+        }
       }
-    });
+    }, fireImmediately: true);
   }
 
-  void _updateUserPresence(String uid, String sessionToken) {
-    final userStatusDatabaseRef = _database.ref('status/$uid');
+  void _goOnline(String uid, String sessionToken) {
+    _userStatusRef = _database.ref('status/$uid');
 
     final isOffline = {
       'state': 'offline',
@@ -33,21 +46,49 @@ class PresenceService {
       'sessionToken': sessionToken,
     };
 
-    _database.ref('.info/connected').onValue.listen((event) {
+    // Cancel any previous listener to avoid multiple connections.
+    _connectionSubscription?.cancel();
+    _connectionSubscription = _database.ref('.info/connected').onValue.listen((
+      event,
+    ) {
       if (event.snapshot.value == false) {
-        // The onDisconnect handler will manage the token clearing.
-        // No need to do anything here on the client side.
         return;
       }
 
-      userStatusDatabaseRef.onDisconnect().set(isOffline).then((_) {
-        userStatusDatabaseRef.set(isOnline);
+      _userStatusRef?.onDisconnect().set(isOffline).then((_) {
+        _userStatusRef?.set(isOnline);
       });
     });
   }
+
+  /// Manually sets the user's status to offline and cancels the onDisconnect handler.
+  Future<void> goOffline() async {
+    // Stop listening to the connection state.
+    _connectionSubscription?.cancel();
+    _connectionSubscription = null;
+
+    if (_userStatusRef != null) {
+      final isOffline = {
+        'state': 'offline',
+        'last_changed': ServerValue.timestamp,
+      };
+      await _userStatusRef!.set(isOffline);
+      await _userStatusRef!.onDisconnect().cancel();
+      _userStatusRef = null;
+    }
+  }
+
+  /// Clean up listeners when the provider is disposed.
+  void dispose() {
+    _connectionSubscription?.cancel();
+    _userSubscription?.close();
+  }
 }
 
+// Ensure the service's dispose method is called when the provider is disposed.
 final presenceServiceProvider = Provider<PresenceService>((ref) {
   final database = FirebaseDatabase.instance;
-  return PresenceService(database, ref);
+  final service = PresenceService(database, ref);
+  ref.onDispose(() => service.dispose());
+  return service;
 });

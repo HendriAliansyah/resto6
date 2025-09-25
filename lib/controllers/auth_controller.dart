@@ -6,6 +6,7 @@ import 'package:resto2/models/restaurant_model.dart';
 import 'package:resto2/models/role_permission_model.dart';
 import 'package:resto2/providers/notification_provider.dart';
 import 'package:resto2/providers/storage_provider.dart';
+import 'package:resto2/services/presence_service.dart'; // Import the presence service
 import 'package:resto2/services/restaurant_service.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';
@@ -75,7 +76,6 @@ class AuthController extends StateNotifier<bool> {
           uid: user.uid,
           token: sessionToken,
         );
-        // THE FIX IS HERE: We now explicitly wait for the token to be initialized.
         await _ref.read(fcmServiceProvider).updateToken();
       }
       state = false;
@@ -98,7 +98,12 @@ class AuthController extends StateNotifier<bool> {
   }
 
   Future<void> signOut() async {
-    // Delete the FCM token from Firestore before signing out
+    // **THE FIX IS HERE:**
+    // 1. Gracefully disconnect from the Realtime Database presence system.
+    //    This is done *before* invalidating the auth token.
+    await _ref.read(presenceServiceProvider).goOffline();
+
+    // 2. Proceed with the rest of the sign-out process.
     await _ref.read(fcmServiceProvider).deleteToken();
     await _authService.signOut();
   }
