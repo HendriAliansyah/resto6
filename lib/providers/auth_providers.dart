@@ -1,3 +1,5 @@
+// lib/providers/auth_providers.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -49,3 +51,10 @@ final authControllerProvider =
 
 // Add this provider to hold the session token for the current device
 final localSessionTokenProvider = StateProvider<String?>((ref) => null);
+
+// **NEWLY ADDED PROVIDER**
+/// A stable, synchronous provider that simply extracts the restaurantId string.
+/// This creates a clear and unambiguous dependency for other providers.
+final userRestaurantIdProvider = Provider<String?>((ref) {
+  return ref.watch(currentUserProvider).asData?.value?.restaurantId;
+});
