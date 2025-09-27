@@ -98,12 +98,12 @@ class AuthController extends StateNotifier<bool> {
   }
 
   Future<void> signOut() async {
-    // **THE FIX IS HERE:**
-    // 1. Gracefully disconnect from the Realtime Database presence system.
-    //    This is done *before* invalidating the auth token.
+    // **THE DEFINITIVE FIX IS HERE:**
+    // 1. Manually set the Realtime Database status to 'offline'. This write
+    //    operation happens while the user is still authenticated.
     await _ref.read(presenceServiceProvider).goOffline();
 
-    // 2. Proceed with the rest of the sign-out process.
+    // 2. Proceed with the rest of the sign-out process, which invalidates the token.
     await _ref.read(fcmServiceProvider).deleteToken();
     await _authService.signOut();
   }
