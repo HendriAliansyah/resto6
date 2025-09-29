@@ -1,41 +1,22 @@
+// lib/models/course_model.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:resto2/utils/timestamp_converter.dart';
 
-class Course {
-  final String id;
-  final String name;
-  final String description;
-  final String restaurantId;
-  final Timestamp createdAt;
-  final Timestamp updatedAt;
+part 'course_model.freezed.dart';
+part 'course_model.g.dart';
 
-  Course({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.restaurantId,
-    required this.createdAt,
-    required this.updatedAt,
-  });
+@freezed
+abstract class Course with _$Course {
+  const factory Course({
+    required String id,
+    required String name,
+    required String description,
+    required String restaurantId,
+    @TimestampConverter() required Timestamp createdAt,
+    @TimestampConverter() required Timestamp updatedAt,
+  }) = _Course;
 
-  factory Course.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Course(
-      id: doc.id,
-      name: data['name'] ?? '',
-      description: data['description'] ?? '',
-      restaurantId: data['restaurantId'] ?? '',
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      updatedAt: data['updatedAt'] ?? Timestamp.now(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'description': description,
-      'restaurantId': restaurantId,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-  }
+  factory Course.fromJson(Map<String, dynamic> json) => _$CourseFromJson(json);
 }

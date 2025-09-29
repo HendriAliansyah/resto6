@@ -1,10 +1,11 @@
 // lib/views/auth/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/views/widgets/shared/app_text_form_field.dart';
-import '../../providers/auth_providers.dart';
 import '../../utils/snackbar.dart';
 import '../../utils/constants.dart';
 import '../widgets/loading_indicator.dart';
@@ -15,25 +16,28 @@ class LoginScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formKey = useMemoized(() => GlobalKey<FormState>());
+    // CORRECTED: Changed `useText TextEditingController` to `useTextEditingController`
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
-    final isLoading = ref.watch(authControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
     final isPasswordVisible = useState(false);
+
+    ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
+      state.whenOrNull(
+        error: (error, stackTrace) {
+          showSnackBar(context, UIMessages.loginFailed, isError: true);
+        },
+      );
+    });
 
     void handleLogin() async {
       FocusScope.of(context).unfocus();
       if (formKey.currentState?.validate() ?? false) {
-        try {
-          await ref
-              .read(authControllerProvider.notifier)
-              .signIn(
-                email: emailController.text.trim(),
-                password: passwordController.text.trim(),
-              );
-        } catch (e) {
-          if (!context.mounted) return;
-          showSnackBar(context, UIMessages.loginFailed, isError: true);
-        }
+        ref.read(authControllerProvider.notifier).signIn(
+              email: emailController.text.trim(),
+              password: passwordController.text.trim(),
+            );
       }
     }
 
@@ -63,10 +67,10 @@ class LoginScreen extends HookConsumerWidget {
                     UIStrings.signInToDashboard,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withAlpha(153),
-                    ),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withAlpha(153),
+                        ),
                   ),
                   const SizedBox(height: 48),
                   Form(

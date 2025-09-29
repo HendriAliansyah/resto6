@@ -1,4 +1,5 @@
 // lib/views/course/course_management_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/models/course_model.dart';
@@ -14,22 +15,20 @@ class CourseManagementPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final coursesAsync = ref.watch(coursesStreamProvider);
-    final courseController = ref.read(courseControllerProvider.notifier);
 
-    ref.listen<CourseState>(courseControllerProvider, (previous, next) {
-      if (next.status == CourseActionStatus.success) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-        showSnackBar(context, UIMessages.courseSaved);
-      }
-      if (next.status == CourseActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.unknownError,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(courseControllerProvider, (previous, next) {
+      next.whenOrNull(
+        data: (_) {
+          // Pop dialog on success
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          showSnackBar(context, UIMessages.courseSaved);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void showCourseDialog({Course? course}) {
@@ -64,9 +63,12 @@ class CourseManagementPage extends ConsumerWidget {
                     color: Colors.redAccent,
                   ),
                   onPressed: () async {
-                    await courseController.deleteCourse(course.id);
-                    if (!context.mounted) return;
-                    showSnackBar(context, UIMessages.courseDeleted);
+                    await ref
+                        .read(courseControllerProvider.notifier)
+                        .deleteCourse(course.id);
+                    if (context.mounted) {
+                      showSnackBar(context, UIMessages.courseDeleted);
+                    }
                   },
                 ),
               ],

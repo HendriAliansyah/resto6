@@ -1,44 +1,34 @@
 // lib/providers/purchase_provider.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/purchase_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/providers/inventory_provider.dart';
 import 'package:resto2/services/purchase_service.dart';
 
-enum PurchaseActionStatus { initial, loading, success, error }
+part 'purchase_provider.g.dart';
 
-class PurchaseState {
-  final PurchaseActionStatus status;
-  final String? errorMessage;
-  PurchaseState({
-    this.status = PurchaseActionStatus.initial,
-    this.errorMessage,
-  });
-}
+@riverpod
+PurchaseService purchaseService(Ref ref) => PurchaseService();
 
-final purchaseServiceProvider = Provider((ref) => PurchaseService());
-
-final purchasesStreamProvider = StreamProvider<List<PurchaseModel>>((ref) {
-  // THIS NOW MATCHES YOUR EXISTING CODE'S PATTERN
-  final restaurantId =
-      ref.watch(currentUserProvider).asData?.value?.restaurantId;
+@riverpod
+Stream<List<PurchaseModel>> purchasesStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
   if (restaurantId == null) {
     return Stream.value([]);
   }
   return ref
       .read(purchaseServiceProvider)
       .getRestaurantPurchasesStream(restaurantId);
-});
+}
 
-final purchaseControllerProvider =
-    StateNotifierProvider<PurchaseController, PurchaseState>(
-      (ref) => PurchaseController(ref),
-    );
-
-class PurchaseController extends StateNotifier<PurchaseState> {
-  final Ref _ref;
-  PurchaseController(this._ref) : super(PurchaseState());
+@riverpod
+class PurchaseController extends _$PurchaseController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
 
   Future<void> addPurchase({
     required String inventoryItemId,
@@ -46,20 +36,15 @@ class PurchaseController extends StateNotifier<PurchaseState> {
     required double purchasePrice,
     String? notes,
   }) async {
-    state = PurchaseState(status: PurchaseActionStatus.loading);
-    final restaurantId =
-        _ref.read(currentUserProvider).asData?.value?.restaurantId;
-    if (restaurantId == null) {
-      state = PurchaseState(
-        status: PurchaseActionStatus.error,
-        errorMessage: 'User not in a restaurant.',
-      );
-      return;
-    }
-
+    state = const AsyncLoading();
     try {
+      final restaurantId = ref.read(userRestaurantIdProvider);
+      if (restaurantId == null) {
+        throw Exception('User not in a restaurant.');
+      }
+
       final newPurchase = PurchaseModel(
-        id: '', // Firestore will generate it
+        id: '',
         inventoryItemId: inventoryItemId,
         quantity: quantity,
         purchasePrice: purchasePrice,
@@ -68,10 +53,11 @@ class PurchaseController extends StateNotifier<PurchaseState> {
         notes: notes,
       );
 
-      await _ref
-          .read(purchaseServiceProvider)
-          .addPurchase(newPurchase.toJson());
-      await _ref
+      await ref.read(purchaseServiceProvider).addPurchase(newPurchase);
+
+      // This is not an async call that updates this notifier's state,
+      // so it doesn't need the `ref.mounted` check.
+      await ref
           .read(inventoryControllerProvider.notifier)
           .updateStockOnPurchase(
             inventoryItemId: inventoryItemId,
@@ -79,12 +65,13 @@ class PurchaseController extends StateNotifier<PurchaseState> {
             purchasePrice: purchasePrice,
           );
 
-      state = PurchaseState(status: PurchaseActionStatus.success);
-    } catch (e) {
-      state = PurchaseState(
-        status: PurchaseActionStatus.error,
-        errorMessage: e.toString(),
-      );
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
+    } catch (e, st) {
+      if (ref.mounted) {
+        state = AsyncError(e, st);
+      }
     }
   }
 }

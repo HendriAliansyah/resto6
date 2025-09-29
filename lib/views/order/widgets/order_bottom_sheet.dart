@@ -1,4 +1,5 @@
 // lib/views/order/widgets/order_bottom_sheet.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -20,7 +21,6 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:uuid/uuid.dart';
 import 'package:resto2/utils/constants.dart';
 
-//... (OrderBottomSheet class remains the same)
 class OrderBottomSheet extends HookConsumerWidget {
   final TableModel table;
   final OrderType orderType;
@@ -36,29 +36,25 @@ class OrderBottomSheet extends HookConsumerWidget {
     final orderedItems = useState<List<OrderItemModel>>([]);
     final orderNote = useState<String?>(null);
     final orderState = ref.watch(orderControllerProvider);
-    final isLoading = orderState.status == OrderActionStatus.loading;
+    final isLoading = orderState.isLoading;
 
-    ref.listen<OrderState>(orderControllerProvider, (prev, next) {
-      if (next.status == OrderActionStatus.success) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        showSnackBar(context, UIMessages.orderPlaced);
-      }
-      if (next.status == OrderActionStatus.error) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(orderControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          showSnackBar(context, UIMessages.orderPlaced);
+        },
+        error: (error, stack) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void handlePlaceOrder() {
-      ref
-          .read(orderControllerProvider.notifier)
-          .placeOrder(
+      ref.read(orderControllerProvider.notifier).placeOrder(
             table: table,
             orderType: orderType,
             items: orderedItems.value,
@@ -161,7 +157,6 @@ class _MenuList extends HookConsumerWidget {
     final menusAsync = ref.watch(menusStreamProvider);
     final coursesAsync = ref.watch(coursesStreamProvider);
 
-    // Hooks for local state management of filters
     final searchQuery = useState('');
     final selectedCourseId = useState<String?>(null);
     final sortOption = useState(MenuSortOption.byName);
@@ -212,18 +207,14 @@ class _MenuList extends HookConsumerWidget {
 
         final courses = coursesAsync.asData?.value ?? [];
 
-        // Apply filtering
         final filteredMenus = menus.where((menu) {
-          final searchMatch = menu.name.toLowerCase().contains(
-            searchQuery.value.toLowerCase(),
-          );
-          final courseMatch =
-              selectedCourseId.value == null ||
+          final searchMatch =
+              menu.name.toLowerCase().contains(searchQuery.value.toLowerCase());
+          final courseMatch = selectedCourseId.value == null ||
               menu.courseId == selectedCourseId.value;
           return searchMatch && courseMatch;
         }).toList();
 
-        // Apply sorting
         filteredMenus.sort((a, b) {
           int comparison;
           switch (sortOption.value) {
@@ -319,7 +310,7 @@ class _MenuList extends HookConsumerWidget {
                   final menu = filteredMenus[index];
                   final orderedItem = orderedItems.value.firstWhere(
                     (item) => item.menuId == menu.id,
-                    orElse: () => OrderItemModel(
+                    orElse: () => const OrderItemModel(
                       id: '',
                       menuId: '',
                       menuName: '',
@@ -338,18 +329,17 @@ class _MenuList extends HookConsumerWidget {
                         IconButton(
                           icon: Icon(
                             Icons.note_add_outlined,
-                            color:
-                                orderedItem.note != null &&
+                            color: orderedItem.note != null &&
                                     orderedItem.note!.isNotEmpty
                                 ? Theme.of(context).colorScheme.primary
                                 : null,
                           ),
                           onPressed: currentQuantity > 0
                               ? () => _showNoteDialog(
-                                  context,
-                                  orderedItem,
-                                  (note) => updateNote(menu.id, note),
-                                )
+                                    context,
+                                    orderedItem,
+                                    (note) => updateNote(menu.id, note),
+                                  )
                               : null,
                         ),
                         IconButton(
@@ -460,9 +450,9 @@ class _OrderSummary extends StatelessWidget {
               Text(
                 '\$${totalPrice.toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
               ),
             ],
           ),
@@ -492,8 +482,8 @@ class _OrderSummary extends StatelessWidget {
                 style: IconButton.styleFrom(
                   backgroundColor:
                       orderNote.value != null && orderNote.value!.isNotEmpty
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : null,
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
                 ),
               ),
             ],

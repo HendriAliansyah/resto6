@@ -1,9 +1,10 @@
 // lib/views/menu/menu_management_page.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-import 'package:resto2/models/course_model.dart';
+import 'package:resto2/models/course_model.dart'; // CORRECTED: Added this import
 import 'package:resto2/models/menu_model.dart';
 import 'package:resto2/providers/course_provider.dart';
 import 'package:resto2/providers/menu_filter_provider.dart';
@@ -49,7 +50,7 @@ class MenuManagementPage extends ConsumerWidget {
                 ref.read(menuFilterProvider.notifier).setSearchQuery(value),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField2<String>(
+          DropdownButtonFormField2<String?>(
             value: filterState.courseId,
             decoration: const InputDecoration(
               labelText: UIStrings.filterByCourse,
@@ -122,10 +123,10 @@ class MenuManagementPage extends ConsumerWidget {
         ],
       ),
       itemBuilder: (context, menu) {
-        final courseName =
-            coursesAsync.asData?.value
+        final courseName = coursesAsync.asData?.value
                 .firstWhere(
                   (c) => c.id == menu.courseId,
+                  // Now the `Course` class is correctly recognized here
                   orElse: () => Course(
                     id: '',
                     name: UIStrings.notAvailable,
@@ -147,7 +148,7 @@ class MenuManagementPage extends ConsumerWidget {
               height: 56,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
-                child: menu.imageUrl != null
+                child: menu.imageUrl != null && menu.imageUrl!.isNotEmpty
                     ? Image.network(menu.imageUrl!, fit: BoxFit.cover)
                     : Container(
                         color: Colors.grey.shade300,

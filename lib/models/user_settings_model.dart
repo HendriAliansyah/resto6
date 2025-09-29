@@ -1,22 +1,18 @@
+// lib/models/user_settings_model.dart
+
 import 'package:flutter/material.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-class UserSettings {
-  final String themeMode;
+part 'user_settings_model.freezed.dart';
+part 'user_settings_model.g.dart';
 
-  UserSettings({
-    this.themeMode = 'system', // Default value
-  });
+@freezed
+abstract class UserSettings with _$UserSettings {
+  const UserSettings._();
 
-  factory UserSettings.fromFirestore(Map<String, dynamic>? data) {
-    if (data == null) {
-      return UserSettings(); // Return default settings if document doesn't exist
-    }
-    return UserSettings(themeMode: data['themeMode'] ?? 'system');
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'themeMode': themeMode};
-  }
+  const factory UserSettings({
+    @Default('system') String themeMode,
+  }) = _UserSettings;
 
   ThemeMode get theme {
     switch (themeMode) {
@@ -28,4 +24,7 @@ class UserSettings {
         return ThemeMode.system;
     }
   }
+
+  factory UserSettings.fromJson(Map<String, dynamic> json) =>
+      _$UserSettingsFromJson(json);
 }

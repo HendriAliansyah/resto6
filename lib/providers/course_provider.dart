@@ -1,25 +1,18 @@
+// lib/providers/course_provider.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/course_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/services/course_service.dart';
 
-// Represents the status of a course-related action
-enum CourseActionStatus { initial, loading, success, error }
+part 'course_provider.g.dart';
 
-// Create a state class to hold status and error messages
-class CourseState {
-  final CourseActionStatus status;
-  final String? errorMessage;
+@riverpod
+CourseService courseService(Ref ref) => CourseService();
 
-  CourseState({this.status = CourseActionStatus.initial, this.errorMessage});
-}
-
-// Provider for the CourseService
-final courseServiceProvider = Provider((ref) => CourseService());
-
-// Stream provider to get all courses for the current restaurant
-final coursesStreamProvider = StreamProvider.autoDispose<List<Course>>((ref) {
+@riverpod
+Stream<List<Course>> coursesStream(Ref ref) {
   final user = ref.watch(currentUserProvider).asData?.value;
   if (user?.restaurantId != null) {
     return ref
@@ -27,21 +20,31 @@ final coursesStreamProvider = StreamProvider.autoDispose<List<Course>>((ref) {
         .getCoursesStream(user!.restaurantId!);
   }
   return Stream.value([]);
-});
+}
 
-// Controller now manages the new CourseState
-final courseControllerProvider =
-    StateNotifierProvider.autoDispose<CourseController, CourseState>((ref) {
-      return CourseController(ref);
-    });
+@riverpod
+class CourseController extends _$CourseController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
 
-class CourseController extends StateNotifier<CourseState> {
-  final Ref _ref;
-  CourseController(this._ref) : super(CourseState());
+  Future<void> _run(Future<void> Function() action) async {
+    state = const AsyncLoading();
+    try {
+      await action();
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
+    } catch (e, st) {
+      if (ref.mounted) {
+        state = AsyncError(e, st);
+      }
+    }
+  }
 
-  // Helper to check for unique names
   bool _isNameUnique(String name, String? courseIdToExclude) {
-    final courses = _ref.read(coursesStreamProvider).asData?.value ?? [];
+    final courses = ref.read(coursesStreamProvider).asData?.value ?? [];
     return courses
         .where(
           (course) =>
@@ -54,93 +57,47 @@ class CourseController extends StateNotifier<CourseState> {
   Future<void> addCourse({
     required String name,
     required String description,
-  }) async {
-    state = CourseState(status: CourseActionStatus.loading);
-    if (!_isNameUnique(name, null)) {
-      state = CourseState(
-        status: CourseActionStatus.error,
-        errorMessage: 'A course with this name already exists.',
-      );
-      return;
-    }
+  }) =>
+      _run(() async {
+        final user = ref.read(currentUserProvider).asData?.value;
+        if (user?.restaurantId == null) {
+          throw Exception('User is not associated with a restaurant.');
+        }
+        if (!_isNameUnique(name, null)) {
+          throw Exception('A course with this name already exists.');
+        }
 
-    final user = _ref.read(currentUserProvider).asData?.value;
-    if (user?.restaurantId == null) {
-      state = CourseState(
-        // THE FIX IS HERE: Corrected the typo
-        status: CourseActionStatus.error,
-        errorMessage: 'User is not associated with a restaurant.',
-      );
-      return;
-    }
+        final newCourse = Course(
+          id: '',
+          name: name,
+          description: description,
+          restaurantId: user!.restaurantId!,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        );
 
-    final newCourse = Course(
-      id: '',
-      name: name,
-      description: description,
-      restaurantId: user!.restaurantId!,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    );
-
-    try {
-      await _ref.read(courseServiceProvider).addCourse(newCourse);
-      state = CourseState(status: CourseActionStatus.success);
-    } catch (e) {
-      state = CourseState(
-        status: CourseActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
-  }
+        await ref.read(courseServiceProvider).addCourse(newCourse);
+      });
 
   Future<void> updateCourse({
     required String courseId,
     required String name,
     required String description,
-  }) async {
-    state = CourseState(status: CourseActionStatus.loading);
-    if (!_isNameUnique(name, courseId)) {
-      state = CourseState(
-        status: CourseActionStatus.error,
-        errorMessage: 'Another course with this name already exists.',
-      );
-      return;
-    }
+  }) =>
+      _run(() async {
+        if (!_isNameUnique(name, courseId)) {
+          throw Exception('Another course with this name already exists.');
+        }
+        final updateData = {
+          'name': name,
+          'description': description,
+          'updatedAt': Timestamp.now(),
+        };
+        await ref
+            .read(courseServiceProvider)
+            .updateCourse(courseId, updateData);
+      });
 
-    final user = _ref.read(currentUserProvider).asData?.value;
-    if (user?.restaurantId == null) {
-      state = CourseState(
-        status: CourseActionStatus.error,
-        errorMessage: 'User is not associated with a restaurant.',
-      );
-      return;
-    }
-
-    final updatedCourse = Course(
-      id: courseId,
-      name: name,
-      description: description,
-      restaurantId: user!.restaurantId!,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    );
-    try {
-      await _ref.read(courseServiceProvider).updateCourse(updatedCourse);
-      state = CourseState(status: CourseActionStatus.success);
-    } catch (e) {
-      state = CourseState(
-        status: CourseActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
-  }
-
-  Future<void> deleteCourse(String courseId) async {
-    try {
-      await _ref.read(courseServiceProvider).deleteCourse(courseId);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<void> deleteCourse(String courseId) =>
+      _run(() => ref.read(courseServiceProvider).deleteCourse(courseId));
 }

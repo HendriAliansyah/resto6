@@ -1,4 +1,5 @@
 // lib/views/summary/order_summary_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -179,8 +180,8 @@ class OrderSummaryPage extends ConsumerWidget {
                               UIStrings.timeLabel.replaceFirst(
                                 '{time}',
                                 DateFormat.yMd().add_jm().format(
-                                  order.createdAt.toDate(),
-                                ),
+                                      order.createdAt.toDate(),
+                                    ),
                               ),
                         ),
                         trailing: Column(
@@ -232,9 +233,9 @@ class OrderSummaryPage extends ConsumerWidget {
                 Text(
                   '\$${totalSales.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 ),
               ],
             ),

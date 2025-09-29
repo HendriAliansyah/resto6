@@ -1,49 +1,37 @@
 // lib/providers/order_summary_filter_provider.dart
+
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/order_model.dart';
 import 'package:resto2/providers/staff_filter_provider.dart';
 
+part 'order_summary_filter_provider.freezed.dart';
+part 'order_summary_filter_provider.g.dart';
+
 enum OrderSortOption { byDate, byTotal }
 
-class OrderSummaryFilterState {
-  final DateTimeRange? dateRange;
-  final OrderStatus? status;
-  final OrderSortOption sortOption;
-  final SortOrder sortOrder;
-
-  OrderSummaryFilterState({
-    this.dateRange,
-    this.status,
-    this.sortOption = OrderSortOption.byDate,
-    this.sortOrder = SortOrder.desc,
-  });
-
-  OrderSummaryFilterState copyWith({
-    ValueGetter<DateTimeRange?>? dateRange,
-    ValueGetter<OrderStatus?>? status,
-    OrderSortOption? sortOption,
-    SortOrder? sortOrder,
-  }) {
-    return OrderSummaryFilterState(
-      dateRange: dateRange != null ? dateRange() : this.dateRange,
-      status: status != null ? status() : this.status,
-      sortOption: sortOption ?? this.sortOption,
-      sortOrder: sortOrder ?? this.sortOrder,
-    );
-  }
+@freezed
+abstract class OrderSummaryFilterState with _$OrderSummaryFilterState {
+  const factory OrderSummaryFilterState({
+    DateTimeRange? dateRange,
+    OrderStatus? status,
+    @Default(OrderSortOption.byDate) OrderSortOption sortOption,
+    @Default(SortOrder.desc) SortOrder sortOrder,
+  }) = _OrderSummaryFilterState;
 }
 
-class OrderSummaryFilterNotifier
-    extends StateNotifier<OrderSummaryFilterState> {
-  OrderSummaryFilterNotifier() : super(OrderSummaryFilterState());
+@riverpod
+class OrderSummaryFilter extends _$OrderSummaryFilter {
+  @override
+  OrderSummaryFilterState build() => const OrderSummaryFilterState();
 
   void setDateRange(DateTimeRange? newDateRange) {
-    state = state.copyWith(dateRange: () => newDateRange);
+    state = state.copyWith(dateRange: newDateRange);
   }
 
   void setStatusFilter(OrderStatus? newStatus) {
-    state = state.copyWith(status: () => newStatus);
+    state = state.copyWith(status: newStatus);
   }
 
   void setSortOption(OrderSortOption newSortOption) {
@@ -54,9 +42,3 @@ class OrderSummaryFilterNotifier
     state = state.copyWith(sortOrder: newSortOrder);
   }
 }
-
-final orderSummaryFilterProvider =
-    StateNotifierProvider.autoDispose<
-      OrderSummaryFilterNotifier,
-      OrderSummaryFilterState
-    >((ref) => OrderSummaryFilterNotifier());

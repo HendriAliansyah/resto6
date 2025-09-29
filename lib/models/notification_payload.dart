@@ -1,42 +1,30 @@
-/// A base class for all notification payload types.
-abstract class NotificationPayload {
-  const NotificationPayload();
-}
+// lib/models/notification_payload.dart
 
-/// A payload for a simple, generic notification message.
-class GenericPayload extends NotificationPayload {
-  final String message;
-  const GenericPayload({required this.message});
-}
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-/// A payload for a notification related to a staff join request.
-class JoinRequestPayload extends NotificationPayload {
-  // We don't need extra data for this type yet, but we could add
-  // things like the requestId or restaurantId in the future.
-  const JoinRequestPayload();
-}
+part 'notification_payload.freezed.dart';
+part 'notification_payload.g.dart';
 
-/// A payload for when a user's join request is approved or rejected.
-class JoinRequestResponsePayload extends NotificationPayload {
-  final bool wasApproved;
-  const JoinRequestResponsePayload({required this.wasApproved});
-}
+@freezed
+sealed class NotificationPayload with _$NotificationPayload {
+  const factory NotificationPayload.generic({
+    required String message,
+  }) = GenericPayload;
 
-/// A payload for a notification about a manual stock edit.
-class StockEditPayload extends NotificationPayload {
-  final String userDisplayName;
-  final String itemName;
-  final double quantityBefore;
-  final double quantityAfter;
-  final String reason;
+  const factory NotificationPayload.joinRequest() = JoinRequestPayload;
 
-  const StockEditPayload({
-    required this.userDisplayName,
-    required this.itemName,
-    required this.quantityBefore,
-    required this.quantityAfter,
-    required this.reason,
-  });
+  const factory NotificationPayload.joinRequestResponse({
+    required bool wasApproved,
+  }) = JoinRequestResponsePayload;
 
-  double get quantityChanged => quantityAfter - quantityBefore;
+  const factory NotificationPayload.stockEdit({
+    required String userDisplayName,
+    required String itemName,
+    required double quantityBefore,
+    required double quantityAfter,
+    required String reason,
+  }) = StockEditPayload;
+
+  factory NotificationPayload.fromJson(Map<String, dynamic> json) =>
+      _$NotificationPayloadFromJson(json);
 }

@@ -1,67 +1,33 @@
 // lib/models/stock_movement_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-// THE FIX IS HERE: Added 'reset' and updated 'waste' for clarity
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:resto2/utils/timestamp_converter.dart';
+
+part 'stock_movement_model.freezed.dart';
+part 'stock_movement_model.g.dart';
+
 enum StockMovementType { manualEdit, purchase, sale, waste, reset }
 
-class StockMovementModel {
-  final String id;
-  // ... (rest of the class is unchanged)
-  final String inventoryItemId;
-  final String userId;
-  final String userDisplayName;
-  final StockMovementType type;
-  final double quantityBefore;
-  final double quantityAfter;
-  final String reason;
-  final Timestamp createdAt;
-  final String restaurantId;
+@freezed
+abstract class StockMovementModel with _$StockMovementModel {
+  const StockMovementModel._();
+
+  const factory StockMovementModel({
+    required String id,
+    required String inventoryItemId,
+    required String userId,
+    required String userDisplayName,
+    required StockMovementType type,
+    required double quantityBefore,
+    required double quantityAfter,
+    required String reason,
+    @TimestampConverter() required Timestamp createdAt,
+    required String restaurantId,
+  }) = _StockMovementModel;
 
   double get quantityChanged => quantityAfter - quantityBefore;
 
-  StockMovementModel({
-    required this.id,
-    required this.inventoryItemId,
-    required this.userId,
-    required this.userDisplayName,
-    required this.type,
-    required this.quantityBefore,
-    required this.quantityAfter,
-    required this.reason,
-    required this.createdAt,
-    required this.restaurantId,
-  });
-
-  factory StockMovementModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return StockMovementModel(
-      id: doc.id,
-      inventoryItemId: data['inventoryItemId'] ?? '',
-      userId: data['userId'] ?? '',
-      userDisplayName: data['userDisplayName'] ?? '',
-      type: StockMovementType.values.firstWhere(
-        (e) => e.name == data['type'],
-        orElse: () => StockMovementType.manualEdit,
-      ),
-      quantityBefore: (data['quantityBefore'] ?? 0.0).toDouble(),
-      quantityAfter: (data['quantityAfter'] ?? 0.0).toDouble(),
-      reason: data['reason'] ?? '',
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      restaurantId: data['restaurantId'] ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'inventoryItemId': inventoryItemId,
-      'userId': userId,
-      'userDisplayName': userDisplayName,
-      'type': type.name,
-      'quantityBefore': quantityBefore,
-      'quantityAfter': quantityAfter,
-      'reason': reason,
-      'createdAt': createdAt,
-      'restaurantId': restaurantId,
-    };
-  }
+  factory StockMovementModel.fromJson(Map<String, dynamic> json) =>
+      _$StockMovementModelFromJson(json);
 }

@@ -1,4 +1,5 @@
 // lib/views/table/widgets/table_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -20,9 +21,8 @@ class TableDialog extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditing = table != null;
     final nameController = useTextEditingController(text: table?.name);
-    final capacityController = useTextEditingController(
-      text: table?.capacity.toString(),
-    );
+    final capacityController =
+        useTextEditingController(text: table?.capacity.toString());
     final selectedTableTypeId = useState<String?>(table?.tableTypeId);
     final selectedOrderTypeId = useState<String?>(table?.orderTypeId);
     final formKey = useMemoized(() => GlobalKey<FormState>());
@@ -60,6 +60,7 @@ class TableDialog extends HookConsumerWidget {
     return EntityDialog(
       title: isEditing ? UIStrings.editTable : UIStrings.addTable,
       onSave: submit,
+      isLoading: ref.watch(tableControllerProvider).isLoading,
       content: Form(
         key: formKey,
         child: Column(

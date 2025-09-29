@@ -7,6 +7,7 @@ class PaymentService {
   final String _collectionPath = 'payments';
 
   Future<void> recordPayment(PaymentModel payment) async {
-    await _db.collection(_collectionPath).add(payment.toJson());
+    final docRef = _db.collection(_collectionPath).doc();
+    await docRef.set(payment.copyWith(id: docRef.id).toJson());
   }
 }

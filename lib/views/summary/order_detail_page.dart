@@ -1,4 +1,5 @@
 // lib/views/summary/order_detail_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:resto2/models/order_model.dart';
@@ -105,14 +106,13 @@ class OrderDetailPage extends StatelessWidget {
           ),
           Text(
             '\$${amount.toStringAsFixed(2)}',
-            style:
-                (isTotal
-                        ? theme.textTheme.titleLarge
-                        : theme.textTheme.bodyLarge)
-                    ?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isTotal ? theme.colorScheme.primary : null,
-                    ),
+            style: (isTotal
+                    ? theme.textTheme.titleLarge
+                    : theme.textTheme.bodyLarge)
+                ?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isTotal ? theme.colorScheme.primary : null,
+            ),
           ),
         ],
       ),

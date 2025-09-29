@@ -7,7 +7,8 @@ class StockMovementService {
   final String _collectionPath = 'stockMovements';
 
   Future<void> addStockMovement(StockMovementModel movement) async {
-    await _db.collection(_collectionPath).add(movement.toJson());
+    final docRef = _db.collection(_collectionPath).doc();
+    await docRef.set(movement.copyWith(id: docRef.id).toJson());
   }
 
   Stream<List<StockMovementModel>> getStockMovementsStream(
@@ -24,10 +25,11 @@ class StockMovementService {
     }
 
     return query.snapshots().map(
-      (snapshot) =>
-          snapshot.docs
-              .map((doc) => StockMovementModel.fromFirestore(doc))
+          (snapshot) => snapshot.docs
+              .map((doc) => StockMovementModel.fromJson(
+                      doc.data() as Map<String, dynamic>)
+                  .copyWith(id: doc.id))
               .toList(),
-    );
+        );
   }
 }

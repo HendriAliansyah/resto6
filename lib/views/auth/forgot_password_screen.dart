@@ -1,10 +1,11 @@
 // lib/views/auth/forgot_password_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/views/widgets/shared/app_text_form_field.dart';
-import '../../providers/auth_providers.dart';
 import '../../utils/snackbar.dart';
 import '../../utils/constants.dart';
 import '../widgets/loading_indicator.dart';
@@ -15,24 +16,34 @@ class ForgotPasswordScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final emailController = useTextEditingController();
-    final isLoading = ref.watch(authControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
 
-    void handleResetPassword() async {
+    ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
+      state.whenOrNull(
+        data: (_) {
+          if (context.mounted) {
+            showSnackBar(context, UIMessages.passwordResetLinkSent);
+            context.pop();
+          }
+        },
+        error: (e, st) {
+          if (context.mounted) {
+            showSnackBar(context, UIMessages.failedToSendResetLink,
+                isError: true);
+          }
+        },
+      );
+    });
+
+    void handleResetPassword() {
       if (emailController.text.trim().isEmpty) {
         showSnackBar(context, UIMessages.enterEmailError, isError: true);
         return;
       }
-      try {
-        await ref
-            .read(authControllerProvider.notifier)
-            .sendPasswordResetEmail(email: emailController.text.trim());
-        if (!context.mounted) return;
-        showSnackBar(context, UIMessages.passwordResetLinkSent);
-        context.pop();
-      } catch (e) {
-        if (!context.mounted) return;
-        showSnackBar(context, UIMessages.failedToSendResetLink, isError: true);
-      }
+      ref
+          .read(authControllerProvider.notifier)
+          .sendPasswordResetEmail(email: emailController.text.trim());
     }
 
     return Scaffold(
@@ -63,10 +74,10 @@ class ForgotPasswordScreen extends HookConsumerWidget {
                     UIStrings.receiveResetLinkMessage,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withAlpha(153),
-                    ),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withAlpha(153),
+                        ),
                   ),
                   const SizedBox(height: 32),
                   AppTextFormField(

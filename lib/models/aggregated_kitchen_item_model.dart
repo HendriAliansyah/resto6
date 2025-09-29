@@ -1,26 +1,30 @@
 // lib/models/aggregated_kitchen_item_model.dart
 
-/// A simple class to hold the source of an item (which order and item ID it came from).
-class OrderItemSource {
-  final String orderId;
-  final String itemId;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  OrderItemSource({required this.orderId, required this.itemId});
+part 'aggregated_kitchen_item_model.freezed.dart';
+part 'aggregated_kitchen_item_model.g.dart';
+
+@freezed
+abstract class OrderItemSource with _$OrderItemSource {
+  const factory OrderItemSource({
+    required String orderId,
+    required String itemId,
+  }) = _OrderItemSource;
+
+  factory OrderItemSource.fromJson(Map<String, dynamic> json) =>
+      _$OrderItemSourceFromJson(json);
 }
 
-/// Represents a grouping of the same menu item from multiple orders.
-class AggregatedKitchenItem {
-  final String menuId;
-  final String menuName;
-  final int totalQuantity;
+@freezed
+abstract class AggregatedKitchenItem with _$AggregatedKitchenItem {
+  const factory AggregatedKitchenItem({
+    required String menuId,
+    required String menuName,
+    required int totalQuantity,
+    required List<OrderItemSource> sources,
+  }) = _AggregatedKitchenItem;
 
-  /// A list of all original items that make up this aggregation.
-  final List<OrderItemSource> sources;
-
-  AggregatedKitchenItem({
-    required this.menuId,
-    required this.menuName,
-    required this.totalQuantity,
-    required this.sources,
-  });
+  factory AggregatedKitchenItem.fromJson(Map<String, dynamic> json) =>
+      _$AggregatedKitchenItemFromJson(json);
 }

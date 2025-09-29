@@ -1,4 +1,5 @@
 // lib/views/notifications/notification_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,7 +17,6 @@ class NotificationPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationsAsync = ref.watch(notificationsStreamProvider);
-    final notificationController = ref.read(notificationControllerProvider);
 
     void showNotificationDialog(String title, String content) {
       showDialog(
@@ -93,17 +93,16 @@ class NotificationPage extends ConsumerWidget {
               itemCount: notifications.length,
               itemBuilder: (context, index) {
                 final notification = notifications[index];
-                final String subtitle = switch (notification.payload) {
-                  GenericPayload p => p.message,
-                  JoinRequestPayload _ => UIStrings.joinRequestMessage,
-                  JoinRequestResponsePayload p =>
-                    p.wasApproved
-                        ? UIStrings.requestApproved
-                        : UIStrings.requestRejected,
-                  StockEditPayload p =>
-                    '${p.itemName}: ${p.quantityBefore.toStringAsFixed(2)} ➔ ${p.quantityAfter.toStringAsFixed(2)}',
-                  _ => UIStrings.newNotification,
-                };
+                final String subtitle = notification.payload.when(
+                  generic: (message) => message,
+                  joinRequest: () => UIStrings.joinRequestMessage,
+                  joinRequestResponse: (wasApproved) => wasApproved
+                      ? UIStrings.requestApproved
+                      : UIStrings.requestRejected,
+                  stockEdit: (userDisplayName, itemName, qBefore, qAfter,
+                          reason) =>
+                      '$itemName: ${qBefore.toStringAsFixed(2)} ➔ ${qAfter.toStringAsFixed(2)}',
+                );
 
                 return ListTile(
                   leading: CircleAvatar(
@@ -130,48 +129,39 @@ class NotificationPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat.yMMMd().add_jm().format(
-                          notification.createdAt.toDate(),
-                        ),
+                        DateFormat.yMMMd()
+                            .add_jm()
+                            .format(notification.createdAt.toDate()),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
                   isThreeLine: true,
                   onTap: () {
+                    final controller = ref.read(notificationControllerProvider);
                     if (!notification.isRead) {
-                      notificationController.markNotificationAsRead(
-                        notification.id,
-                      );
+                      controller.markNotificationAsRead(notification.id);
                     }
 
-                    switch (notification.payload) {
-                      case JoinRequestPayload():
-                        context.push(AppRoutes.manageStaff);
-                        break;
-                      case StockEditPayload p:
-                        final change = p.quantityChanged;
+                    notification.payload.when(
+                      joinRequest: () => context.push(AppRoutes.manageStaff),
+                      stockEdit: (user, item, before, after, reason) {
+                        final change = after - before;
                         final changeText =
                             '${change > 0 ? '+' : ''}${change.toStringAsFixed(2)}';
-                        final content =
-                            'User: ${p.userDisplayName}\n'
-                            'Item: ${p.itemName}\n\n'
-                            'Quantity Before: ${p.quantityBefore.toStringAsFixed(2)}\n'
-                            'Quantity After: ${p.quantityAfter.toStringAsFixed(2)}\n'
+                        final content = 'User: $user\n'
+                            'Item: $item\n\n'
+                            'Quantity Before: ${before.toStringAsFixed(2)}\n'
+                            'Quantity After: ${after.toStringAsFixed(2)}\n'
                             'Change: $changeText\n\n'
-                            'Reason: ${p.reason}';
+                            'Reason: $reason';
                         showNotificationDialog(notification.title, content);
-                        break;
-                      case GenericPayload p:
-                        showNotificationDialog(notification.title, p.message);
-                        break;
-                      case JoinRequestResponsePayload():
-                        showNotificationDialog(notification.title, subtitle);
-                        break;
-                      default:
-                        showNotificationDialog(notification.title, subtitle);
-                        break;
-                    }
+                      },
+                      generic: (message) =>
+                          showNotificationDialog(notification.title, message),
+                      joinRequestResponse: (_) =>
+                          showNotificationDialog(notification.title, subtitle),
+                    );
                   },
                 );
               },

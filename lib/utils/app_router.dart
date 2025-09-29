@@ -1,4 +1,5 @@
 // lib/utils/app_router.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -39,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final appUser = ref.watch(currentUserProvider);
 
   return GoRouter(
-    initialLocation: '/', // Start at the splash screen
+    initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
@@ -77,7 +78,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.editStaff,
         builder: (context, state) {
-          final staff = state.extra as Staff; // Uses your 'Staff' class
+          final staff = state.extra as Staff;
           return EditStaffPage(staff: staff);
         },
       ),
@@ -158,8 +159,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (BuildContext context, GoRouterState state) {
       final onSplash = state.matchedLocation == '/';
-      final userIsAuthenticating =
-          state.matchedLocation == AppRoutes.login ||
+      final userIsAuthenticating = state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.register ||
           state.matchedLocation == AppRoutes.forgotPassword;
 

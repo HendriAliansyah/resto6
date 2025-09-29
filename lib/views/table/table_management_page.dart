@@ -1,10 +1,9 @@
 // lib/views/table/table_management_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-import 'package:resto2/models/order_type_model.dart';
 import 'package:resto2/models/table_model.dart';
-import 'package:resto2/models/table_type_model.dart';
 import 'package:resto2/providers/order_type_provider.dart';
 import 'package:resto2/providers/table_filter_provider.dart';
 import 'package:resto2/providers/table_provider.dart';
@@ -27,20 +26,18 @@ class TableManagementPage extends ConsumerWidget {
     final filter = ref.watch(tableFilterProvider);
     final filterNotifier = ref.read(tableFilterProvider.notifier);
 
-    ref.listen<TableState>(tableControllerProvider, (previous, next) {
-      if (next.status == TableActionStatus.success) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-        showSnackBar(context, UIMessages.tableSaved);
-      }
-      if (next.status == TableActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(tableControllerProvider, (previous, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          showSnackBar(context, UIMessages.tableSaved);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void showTableDialog({TableModel? table}) {
@@ -137,37 +134,16 @@ class TableManagementPage extends ConsumerWidget {
         ],
       ),
       itemBuilder: (context, table) {
-        final tableTypesList = tableTypesAsync.asData?.value;
-        final orderTypesList = orderTypesAsync.asData?.value;
+        final tableTypesMap = {
+          for (var e in tableTypesAsync.asData?.value ?? []) e.id: e.name
+        };
+        final orderTypesMap = {
+          for (var e in orderTypesAsync.asData?.value ?? []) e.id: e.name
+        };
 
-        String tableTypeName = UIStrings.notAvailable;
-        if (tableTypesList != null) {
-          tableTypeName = tableTypesList
-              .firstWhere(
-                (element) => element.id == table.tableTypeId,
-                orElse: () => TableType(
-                  id: '',
-                  name: UIStrings.notAvailable,
-                  restaurantId: '',
-                ),
-              )
-              .name;
-        }
-
-        String orderTypeName = UIStrings.all;
-        if (orderTypesList != null) {
-          orderTypeName = orderTypesList
-              .firstWhere(
-                (element) => element.id == table.orderTypeId,
-                orElse: () => OrderType(
-                  id: '',
-                  name: UIStrings.all,
-                  restaurantId: '',
-                  accessibility: OrderTypeAccessibility.all,
-                ),
-              )
-              .name;
-        }
+        final tableTypeName =
+            tableTypesMap[table.tableTypeId] ?? UIStrings.notAvailable;
+        final orderTypeName = orderTypesMap[table.orderTypeId] ?? UIStrings.all;
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -194,24 +170,11 @@ class TableManagementPage extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.error,
                   ),
                   onPressed: () async {
-                    try {
-                      await ref
-                          .read(tableControllerProvider.notifier)
-                          .deleteTable(table.id);
-                      if (context.mounted) {
-                        showSnackBar(context, UIMessages.tableDeleted);
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        showSnackBar(
-                          context,
-                          UIMessages.failedToDeleteTable.replaceFirst(
-                            '{error}',
-                            e.toString(),
-                          ),
-                          isError: true,
-                        );
-                      }
+                    await ref
+                        .read(tableControllerProvider.notifier)
+                        .deleteTable(table.id);
+                    if (context.mounted) {
+                      showSnackBar(context, UIMessages.tableDeleted);
                     }
                   },
                 ),

@@ -1,3 +1,5 @@
+// lib/views/widgets/notification_bell.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,12 +11,10 @@ class NotificationBell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the stream of notifications
     final notificationsAsync = ref.watch(notificationsStreamProvider);
 
     return notificationsAsync.when(
       data: (notifications) {
-        // Calculate the number of unread notifications
         final unreadCount =
             notifications.where((n) => n.isRead == false).length;
 
@@ -51,16 +51,14 @@ class NotificationBell extends ConsumerWidget {
           ],
         );
       },
-      loading:
-          () => IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
-          ),
-      error:
-          (err, stack) => IconButton(
-            icon: const Icon(Icons.notifications_off_outlined),
-            onPressed: () {},
-          ),
+      loading: () => IconButton(
+        icon: const Icon(Icons.notifications_outlined),
+        onPressed: () {},
+      ),
+      error: (err, stack) => IconButton(
+        icon: const Icon(Icons.notifications_off_outlined),
+        onPressed: () {},
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 // lib/views/kitchen/widgets/reset_approval_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -26,10 +27,9 @@ class ResetApprovalDialog extends HookConsumerWidget {
     void handleApproval() async {
       if (formKey.currentState?.validate() ?? false) {
         isLoading.value = true;
-        FirebaseApp? tempApp; // Keep a reference to the temp app
+        FirebaseApp? tempApp;
 
         try {
-          // Use a unique name for the temporary app to avoid conflicts
           tempApp = await Firebase.initializeApp(
             name: 'tempManagerAuth-${DateTime.now().millisecondsSinceEpoch}',
             options: Firebase.app().options,
@@ -73,11 +73,9 @@ class ResetApprovalDialog extends HookConsumerWidget {
             showSnackBar(context, 'Error: ${e.toString()}', isError: true);
           }
         } finally {
-          // THE FIX IS HERE: Properly delete the temporary app instance.
           if (tempApp != null) {
             await tempApp.delete();
           }
-
           if (context.mounted) {
             isLoading.value = false;
           }

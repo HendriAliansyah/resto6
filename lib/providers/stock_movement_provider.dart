@@ -1,22 +1,24 @@
 // lib/providers/stock_movement_provider.dart
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/stock_movement_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/services/stock_movement_service.dart';
 
-final stockMovementServiceProvider = Provider((ref) => StockMovementService());
+part 'stock_movement_provider.g.dart';
 
-final stockMovementsStreamProvider = StreamProvider.autoDispose
-    .family<List<StockMovementModel>, String>((ref, inventoryItemId) {
-      final restaurantId =
-          ref.watch(currentUserProvider).asData?.value?.restaurantId;
-      if (restaurantId == null) {
-        return Stream.value([]);
-      }
-      return ref
-          .watch(stockMovementServiceProvider)
-          .getStockMovementsStream(
-            restaurantId,
-            inventoryItemId: inventoryItemId,
-          );
-    });
+@riverpod
+StockMovementService stockMovementService(Ref ref) => StockMovementService();
+
+@riverpod
+Stream<List<StockMovementModel>> stockMovementsStream(
+    Ref ref, String inventoryItemId) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
+  if (restaurantId == null) {
+    return Stream.value([]);
+  }
+  return ref.watch(stockMovementServiceProvider).getStockMovementsStream(
+        restaurantId,
+        inventoryItemId: inventoryItemId,
+      );
+}

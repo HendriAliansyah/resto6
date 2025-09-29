@@ -1,4 +1,5 @@
 // lib/views/settings/settings_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,27 +14,25 @@ class SettingsPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final savedThemeMode = ref.watch(themeModeProvider);
-    final themeNotifier = ref.read(themeModeProvider.notifier);
+    final savedThemeMode = ref.watch(themeModeControllerProvider);
+    final themeNotifier = ref.read(themeModeControllerProvider.notifier);
     final previewThemeMode = ref.watch(previewThemeModeProvider);
     final isLoading = useState(false);
-    final previewNotifierRef = useRef(
-      ref.read(previewThemeModeProvider.notifier),
-    );
 
     useEffect(() {
-      final previewNotifier = previewNotifierRef.value;
+      final previewNotifier = ref.read(previewThemeModeProvider.notifier);
       // Initialize the preview with the currently saved theme.
       Future.microtask(() {
-        previewNotifier.state = savedThemeMode;
+        previewNotifier.set(savedThemeMode);
       });
 
       return () {
+        // When leaving the page, reset the preview
         Future.microtask(() {
-          previewNotifier.state = null;
+          previewNotifier.set(null);
         });
       };
-    }, []);
+    }, [savedThemeMode]); // Rerun if the saved theme changes
 
     void handleSaveChanges() async {
       if (previewThemeMode == null) return;
@@ -94,8 +93,9 @@ class SettingsPage extends HookConsumerWidget {
             ],
             selected: {previewThemeMode ?? savedThemeMode},
             onSelectionChanged: (newSelection) {
-              ref.read(previewThemeModeProvider.notifier).state =
-                  newSelection.first;
+              ref
+                  .read(previewThemeModeProvider.notifier)
+                  .set(newSelection.first);
             },
           ),
           const SizedBox(height: 32),
@@ -103,7 +103,8 @@ class SettingsPage extends HookConsumerWidget {
             const Center(child: LoadingIndicator())
           else
             ElevatedButton(
-              onPressed: previewThemeMode == savedThemeMode
+              onPressed: (previewThemeMode == null ||
+                      previewThemeMode == savedThemeMode)
                   ? null
                   : handleSaveChanges,
               child: const Text(UIStrings.saveChanges),

@@ -1,4 +1,5 @@
 // lib/views/purchase/purchase_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -26,20 +27,18 @@ class ReceivingInventoryPage extends HookConsumerWidget {
 
     final inventoryAsync = ref.watch(inventoryStreamProvider);
     final purchaseState = ref.watch(purchaseControllerProvider);
-    final isLoading = purchaseState.status == PurchaseActionStatus.loading;
+    final isLoading = purchaseState.isLoading;
 
-    ref.listen<PurchaseState>(purchaseControllerProvider, (prev, next) {
-      if (next.status == PurchaseActionStatus.success) {
-        if (context.mounted) Navigator.of(context).pop();
-        showSnackBar(context, UIMessages.stockUpdated);
-      }
-      if (next.status == PurchaseActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(purchaseControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (context.mounted) Navigator.of(context).pop();
+          showSnackBar(context, UIMessages.stockUpdated);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void submit() {
@@ -48,9 +47,7 @@ class ReceivingInventoryPage extends HookConsumerWidget {
         final quantity = double.tryParse(quantityController.text) ?? 0.0;
         final price = double.tryParse(priceController.text) ?? 0.0;
 
-        ref
-            .read(purchaseControllerProvider.notifier)
-            .addPurchase(
+        ref.read(purchaseControllerProvider.notifier).addPurchase(
               inventoryItemId: selectedInventoryItem.value!.id,
               quantity: quantity,
               purchasePrice: price,

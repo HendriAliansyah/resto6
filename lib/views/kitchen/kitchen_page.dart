@@ -1,4 +1,5 @@
 // lib/views/kitchen/kitchen_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -11,7 +12,6 @@ import 'package:resto2/views/widgets/custom_app_bar.dart';
 import 'package:resto2/views/widgets/loading_indicator.dart';
 import 'package:resto2/utils/constants.dart';
 
-// Enum to manage the view state
 enum KitchenView { orders, summary }
 
 class KitchenPage extends HookConsumerWidget {
@@ -20,14 +20,12 @@ class KitchenPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeOrdersAsync = ref.watch(activeOrdersStreamProvider);
-    // Hook to manage the view state, defaulting to the orders view
     final currentView = useState(KitchenView.orders);
 
     return Scaffold(
       appBar: CustomAppBar(
         title: const Text(UIStrings.kitchenDisplaySystem),
         actions: [
-          // Toggle button to switch views
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: SegmentedButton<KitchenView>(
@@ -54,15 +52,13 @@ class KitchenPage extends HookConsumerWidget {
       drawer: const AppDrawer(),
       body: activeOrdersAsync.when(
         data: (orders) {
-          // Conditional rendering based on the selected view
           if (currentView.value == KitchenView.summary) {
             return const _AggregatedView();
           }
 
-          // --- EXISTING ORDER VIEW LOGIC ---
-          final List<KitchenOrderModel> newOrders = [];
-          final List<KitchenOrderModel> preparingOrders = [];
-          final List<KitchenOrderModel> readyOrders = [];
+          final newOrders = <KitchenOrderModel>[];
+          final preparingOrders = <KitchenOrderModel>[];
+          final readyOrders = <KitchenOrderModel>[];
 
           for (final order in orders) {
             final pendingItems = order.items
@@ -72,11 +68,9 @@ class KitchenPage extends HookConsumerWidget {
                 .where((item) => item.status == OrderItemStatus.preparing)
                 .toList();
             final readyAndServedItems = order.items
-                .where(
-                  (item) =>
-                      item.status == OrderItemStatus.ready ||
-                      item.status == OrderItemStatus.served,
-                )
+                .where((item) =>
+                    item.status == OrderItemStatus.ready ||
+                    item.status == OrderItemStatus.served)
                 .toList();
 
             if (pendingItems.isNotEmpty) {
@@ -92,8 +86,7 @@ class KitchenPage extends HookConsumerWidget {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              const wideScreenBreakpoint = 600;
-              final isWideScreen = constraints.maxWidth > wideScreenBreakpoint;
+              final isWideScreen = constraints.maxWidth > 600;
 
               if (isWideScreen) {
                 return Row(
@@ -130,33 +123,26 @@ class KitchenPage extends HookConsumerWidget {
                       TabBar(
                         tabs: [
                           Tab(
-                            text:
-                                '${UIStrings.newOrders} (${newOrders.length})',
-                          ),
+                              text:
+                                  '${UIStrings.newOrders} (${newOrders.length})'),
                           Tab(
-                            text:
-                                '${UIStrings.preparing} (${preparingOrders.length})',
-                          ),
+                              text:
+                                  '${UIStrings.preparing} (${preparingOrders.length})'),
                           Tab(
-                            text: '${UIStrings.ready} (${readyOrders.length})',
-                          ),
+                              text:
+                                  '${UIStrings.ready} (${readyOrders.length})'),
                         ],
                       ),
                       Expanded(
                         child: TabBarView(
                           children: [
                             _OrderColumn(
-                              title: UIStrings.newOrders,
-                              orders: newOrders,
-                            ),
+                                title: UIStrings.newOrders, orders: newOrders),
                             _OrderColumn(
-                              title: UIStrings.preparing,
-                              orders: preparingOrders,
-                            ),
+                                title: UIStrings.preparing,
+                                orders: preparingOrders),
                             _OrderColumn(
-                              title: UIStrings.ready,
-                              orders: readyOrders,
-                            ),
+                                title: UIStrings.ready, orders: readyOrders),
                           ],
                         ),
                       ),
@@ -174,7 +160,6 @@ class KitchenPage extends HookConsumerWidget {
   }
 }
 
-/// A new widget to display the aggregated summary of pending items.
 class _AggregatedView extends ConsumerWidget {
   const _AggregatedView();
 
@@ -206,10 +191,8 @@ class _AggregatedView extends ConsumerWidget {
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 6.0),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
               children: [
                 CircleAvatar(
@@ -228,7 +211,6 @@ class _AggregatedView extends ConsumerWidget {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  // Override the theme's minimumSize for this specific button
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(150, 48),
                   ),
@@ -280,9 +262,7 @@ class _OrderColumn extends StatelessWidget {
                 ? const Center(child: Text(UIStrings.noOrdersInStage))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 4.0,
-                      vertical: 8.0,
-                    ),
+                        horizontal: 4.0, vertical: 8.0),
                     itemCount: orders.length,
                     itemBuilder: (context, index) {
                       return OrderTicket(order: orders[index]);

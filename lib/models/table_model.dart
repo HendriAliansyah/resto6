@@ -1,46 +1,22 @@
 // lib/models/table_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-class TableModel {
-  final String id;
-  final String name;
-  final String tableTypeId;
-  final int capacity;
-  final String restaurantId;
-  final String? orderTypeId;
-  final bool isOccupied; // Added
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  TableModel({
-    required this.id,
-    required this.name,
-    required this.tableTypeId,
-    required this.capacity,
-    required this.restaurantId,
-    this.orderTypeId,
-    this.isOccupied = false, // Added
-  });
+part 'table_model.freezed.dart';
+part 'table_model.g.dart';
 
-  factory TableModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return TableModel(
-      id: doc.id,
-      name: data['name'] ?? '',
-      tableTypeId: data['tableTypeId'] ?? '',
-      capacity: data['capacity'] ?? 0,
-      restaurantId: data['restaurantId'] ?? '',
-      orderTypeId: data['orderTypeId'],
-      isOccupied: data['isOccupied'] ?? false, // Added
-    );
-  }
+@freezed
+abstract class TableModel with _$TableModel {
+  const factory TableModel({
+    required String id,
+    required String name,
+    required String tableTypeId,
+    required int capacity,
+    required String restaurantId,
+    String? orderTypeId,
+    @Default(false) bool isOccupied,
+  }) = _TableModel;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'tableTypeId': tableTypeId,
-      'capacity': capacity,
-      'restaurantId': restaurantId,
-      'orderTypeId': orderTypeId,
-      'isOccupied': isOccupied, // Added
-    };
-  }
+  factory TableModel.fromJson(Map<String, dynamic> json) =>
+      _$TableModelFromJson(json);
 }

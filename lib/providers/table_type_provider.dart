@@ -1,78 +1,35 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+// lib/providers/table_type_provider.dart
+
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/table_type_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
+import 'package:resto2/services/table_type_service.dart';
 
-// Service
-class TableTypeService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _collectionPath = 'tableTypes';
+part 'table_type_provider.g.dart';
 
-  Stream<List<TableType>> getTableTypesStream(String restaurantId) {
-    return _db
-        .collection(_collectionPath)
-        .where('restaurantId', isEqualTo: restaurantId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => TableType.fromFirestore(doc)).toList(),
-        );
-  }
+@riverpod
+TableTypeService tableTypeService(Ref ref) => TableTypeService();
 
-  Future<void> addTableType(Map<String, dynamic> data) async {
-    await _db.collection(_collectionPath).add(data);
-  }
-
-  Future<void> updateTableType(String id, String name) async {
-    await _db.collection(_collectionPath).doc(id).update({'name': name});
-  }
-
-  Future<void> deleteTableType(String id) async {
-    await _db.collection(_collectionPath).doc(id).delete();
-  }
-}
-
-// State
-enum TableTypeActionStatus { initial, loading, success, error }
-
-class TableTypeState {
-  final TableTypeActionStatus status;
-  final String? errorMessage;
-  TableTypeState({
-    this.status = TableTypeActionStatus.initial,
-    this.errorMessage,
-  });
-}
-
-// Providers
-final tableTypeServiceProvider = Provider((ref) => TableTypeService());
-
-final tableTypesStreamProvider = StreamProvider.autoDispose<List<TableType>>((
-  ref,
-) {
-  final user = ref.watch(currentUserProvider).asData?.value;
-  if (user?.restaurantId != null) {
+@riverpod
+Stream<List<TableType>> tableTypesStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
+  if (restaurantId != null) {
     return ref
         .watch(tableTypeServiceProvider)
-        .getTableTypesStream(user!.restaurantId!);
+        .getTableTypesStream(restaurantId);
   }
   return Stream.value([]);
-});
+}
 
-final tableTypeControllerProvider =
-    StateNotifierProvider.autoDispose<TableTypeController, TableTypeState>((
-      ref,
-    ) {
-      return TableTypeController(ref);
-    });
-
-// Controller
-class TableTypeController extends StateNotifier<TableTypeState> {
-  final Ref _ref;
-  TableTypeController(this._ref) : super(TableTypeState());
+@riverpod
+class TableTypeController extends _$TableTypeController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
 
   bool _isNameUnique(String name, String? idToExclude) {
-    final types = _ref.read(tableTypesStreamProvider).asData?.value ?? [];
+    final types = ref.read(tableTypesStreamProvider).asData?.value ?? [];
     return types
         .where(
           (type) =>
@@ -83,68 +40,43 @@ class TableTypeController extends StateNotifier<TableTypeState> {
   }
 
   Future<void> addTableType({required String name}) async {
-    state = TableTypeState(status: TableTypeActionStatus.loading);
-    if (!_isNameUnique(name, null)) {
-      state = TableTypeState(
-        status: TableTypeActionStatus.error,
-        errorMessage: 'This table type already exists.',
-      );
-      return;
-    }
+    state = const AsyncLoading();
+    final restaurantId = ref.read(userRestaurantIdProvider);
+    state = await AsyncValue.guard(() async {
+      if (restaurantId == null) {
+        throw Exception('User not in a restaurant.');
+      }
+      if (!_isNameUnique(name, null)) {
+        throw Exception('This table type already exists.');
+      }
 
-    final restaurantId =
-        _ref.read(currentUserProvider).asData?.value?.restaurantId;
-    if (restaurantId == null) {
-      state = TableTypeState(
-        status: TableTypeActionStatus.error,
-        errorMessage: 'User not in a restaurant.',
+      final newTableType = TableType(
+        id: '', // Firestore generates
+        name: name,
+        restaurantId: restaurantId,
       );
-      return;
-    }
-
-    try {
-      await _ref.read(tableTypeServiceProvider).addTableType({
-        'name': name,
-        'restaurantId': restaurantId,
-      });
-      state = TableTypeState(status: TableTypeActionStatus.success);
-    } catch (e) {
-      state = TableTypeState(
-        status: TableTypeActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+      await ref.read(tableTypeServiceProvider).addTableType(newTableType);
+    });
   }
 
   Future<void> updateTableType({
     required String id,
     required String name,
   }) async {
-    state = TableTypeState(status: TableTypeActionStatus.loading);
-    if (!_isNameUnique(name, id)) {
-      state = TableTypeState(
-        status: TableTypeActionStatus.error,
-        errorMessage: 'Another table type with this name already exists.',
-      );
-      return;
-    }
-
-    try {
-      await _ref.read(tableTypeServiceProvider).updateTableType(id, name);
-      state = TableTypeState(status: TableTypeActionStatus.success);
-    } catch (e) {
-      state = TableTypeState(
-        status: TableTypeActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (!_isNameUnique(name, id)) {
+        throw Exception('Another table type with this name already exists.');
+      }
+      await ref
+          .read(tableTypeServiceProvider)
+          .updateTableType(id, {'name': name});
+    });
   }
 
   Future<void> deleteTableType(String id) async {
-    try {
-      await _ref.read(tableTypeServiceProvider).deleteTableType(id);
-    } catch (e) {
-      // Error handling can be expanded here
-    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+        () => ref.read(tableTypeServiceProvider).deleteTableType(id));
   }
 }

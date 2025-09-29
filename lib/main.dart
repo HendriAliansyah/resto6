@@ -26,7 +26,8 @@ void main() async {
   await container.read(localNotificationServiceProvider).init();
 
   await FirebaseAppCheck.instance.activate(
-    webProvider: ReCaptchaV3Provider('recaptcha-v-site-key'),
+    // CORRECTED: Renamed 'webProvider' to 'providerWeb'
+    providerWeb: ReCaptchaV3Provider('recaptcha-v-site-key'),
     androidProvider: AndroidProvider.playIntegrity,
   );
 
@@ -44,13 +45,10 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(presenceServiceProvider);
     final router = ref.watch(routerProvider);
-    final savedThemeMode = ref.watch(themeModeProvider);
+    final savedThemeMode = ref.watch(themeModeControllerProvider);
     final previewThemeMode = ref.watch(previewThemeModeProvider);
 
-    ref.listen<AsyncValue<AppUser?>>(currentUserProvider, (
-      previous,
-      next,
-    ) async {
+    ref.listen<AsyncValue<AppUser?>>(currentUserProvider, (_, next) async {
       final user = next.asData?.value;
       if (user != null) {
         ref.read(fcmServiceProvider);
@@ -60,7 +58,7 @@ class MyApp extends ConsumerWidget {
 
         if (localToken == null && remoteToken != null) {
           await Future.delayed(const Duration(milliseconds: 500));
-          ref.read(localSessionTokenProvider.notifier).state = remoteToken;
+          ref.read(localSessionTokenProvider.notifier).setToken(remoteToken);
         } else if (localToken != null &&
             remoteToken != null &&
             remoteToken != localToken) {
@@ -78,9 +76,9 @@ class MyApp extends ConsumerWidget {
       }
     });
 
-    ref.listen<AsyncValue<User?>>(authStateChangeProvider, (previous, next) {
+    ref.listen<AsyncValue<User?>>(authStateChangeProvider, (_, next) {
       if (next.asData?.value == null) {
-        ref.read(localSessionTokenProvider.notifier).state = null;
+        ref.read(localSessionTokenProvider.notifier).setToken(null);
       }
     });
 

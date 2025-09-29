@@ -1,4 +1,5 @@
 // lib/views/table_type/widgets/table_type_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -18,34 +19,31 @@ class TableTypeDialog extends HookConsumerWidget {
     final isEditing = tableType != null;
     final nameController = useTextEditingController(text: tableType?.name);
     final formKey = useMemoized(() => GlobalKey<FormState>());
-    final isLoading =
-        ref.watch(tableTypeControllerProvider).status ==
-        TableTypeActionStatus.loading;
+    final isLoading = ref.watch(tableTypeControllerProvider).isLoading;
 
-    ref.listen<TableTypeState>(tableTypeControllerProvider, (prev, next) {
-      if (next.status == TableTypeActionStatus.success) {
-        showSnackBar(context, UIMessages.tableTypeSaved);
-        if (isEditing) {
-          Navigator.of(context).pop();
-        } else {
-          nameController.clear();
-        }
-      }
-      if (next.status == TableTypeActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(tableTypeControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          showSnackBar(context, UIMessages.tableTypeSaved);
+          if (isEditing) {
+            Navigator.of(context).pop();
+          } else {
+            nameController.clear();
+          }
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void submit() {
       if (formKey.currentState?.validate() ?? false) {
         if (isEditing) {
-          ref
-              .read(tableTypeControllerProvider.notifier)
-              .updateTableType(id: tableType!.id, name: nameController.text);
+          ref.read(tableTypeControllerProvider.notifier).updateTableType(
+                id: tableType!.id,
+                name: nameController.text,
+              );
         } else {
           ref
               .read(tableTypeControllerProvider.notifier)

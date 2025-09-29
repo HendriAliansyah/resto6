@@ -1,4 +1,5 @@
 // lib/views/order/widgets/add_to_order_bottom_sheet.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -20,20 +21,18 @@ class AddToOrderBottomSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final newItems = useState<List<OrderItemModel>>([]);
     final orderState = ref.watch(orderControllerProvider);
-    final isLoading = orderState.status == OrderActionStatus.loading;
+    final isLoading = orderState.isLoading;
 
-    ref.listen<OrderState>(orderControllerProvider, (prev, next) {
-      if (next.status == OrderActionStatus.success) {
-        Navigator.of(context).pop(); // Close this bottom sheet
-        showSnackBar(context, UIMessages.itemsAddedToOrder);
-      }
-      if (next.status == OrderActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(orderControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          Navigator.of(context).pop(); // Close this bottom sheet
+          showSnackBar(context, UIMessages.itemsAddedToOrder);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void handleAddItems() {
@@ -77,7 +76,6 @@ class AddToOrderBottomSheet extends HookConsumerWidget {
   }
 }
 
-// Reusable Menu List Widget
 class _MenuList extends HookConsumerWidget {
   final ValueNotifier<List<OrderItemModel>> orderedItems;
 
@@ -123,7 +121,7 @@ class _MenuList extends HookConsumerWidget {
           final currentQuantity = orderedItems.value
               .firstWhere(
                 (item) => item.menuId == menu.id,
-                orElse: () => OrderItemModel(
+                orElse: () => const OrderItemModel(
                   id: '',
                   menuId: '',
                   menuName: '',

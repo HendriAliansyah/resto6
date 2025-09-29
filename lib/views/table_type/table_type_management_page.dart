@@ -1,4 +1,5 @@
 // lib/views/table_type/table_type_management_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/models/table_type_model.dart';

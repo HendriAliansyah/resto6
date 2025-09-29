@@ -1,4 +1,5 @@
 // lib/views/inventory/edit_stock_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -21,23 +22,21 @@ class EditStockPage extends HookConsumerWidget {
     final newQuantityController = useTextEditingController();
     final reasonController = useTextEditingController();
     final inventoryState = ref.watch(inventoryControllerProvider);
-    final isLoading = inventoryState.status == InventoryActionStatus.loading;
+    final isLoading = inventoryState.isLoading;
 
-    ref.listen<InventoryState>(inventoryControllerProvider, (prev, next) {
-      if (next.status == InventoryActionStatus.success) {
-        showSnackBar(context, UIMessages.stockUpdateSuccessful);
-        selectedItem.value = null;
-        newQuantityController.clear();
-        reasonController.clear();
-        formKey.currentState?.reset();
-      }
-      if (next.status == InventoryActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(inventoryControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          showSnackBar(context, UIMessages.stockUpdateSuccessful);
+          selectedItem.value = null;
+          newQuantityController.clear();
+          reasonController.clear();
+          formKey.currentState?.reset();
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void submit() {
@@ -45,9 +44,7 @@ class EditStockPage extends HookConsumerWidget {
         formKey.currentState!.save();
         final newQuantity = double.tryParse(newQuantityController.text) ?? 0.0;
 
-        ref
-            .read(inventoryControllerProvider.notifier)
-            .editStock(
+        ref.read(inventoryControllerProvider.notifier).editStock(
               item: selectedItem.value!,
               newQuantity: newQuantity,
               reason: reasonController.text,
@@ -58,7 +55,8 @@ class EditStockPage extends HookConsumerWidget {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: const CustomAppBar(title: Text(UIStrings.manualStockAdjustment)),
+        appBar:
+            const CustomAppBar(title: Text(UIStrings.manualStockAdjustment)),
         drawer: const AppDrawer(),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -103,7 +101,9 @@ class EditStockPage extends HookConsumerWidget {
                             trailing: Text(
                               selectedItem.value!.quantityInStock
                                   .toStringAsFixed(2),
-                              style: Theme.of(context).textTheme.titleMedium
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),

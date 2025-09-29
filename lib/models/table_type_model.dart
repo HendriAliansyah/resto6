@@ -1,22 +1,18 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/models/table_type_model.dart
 
-class TableType {
-  final String id;
-  final String name;
-  final String restaurantId;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  TableType({required this.id, required this.name, required this.restaurantId});
+part 'table_type_model.freezed.dart';
+part 'table_type_model.g.dart';
 
-  factory TableType.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return TableType(
-      id: doc.id,
-      name: data['name'] ?? '',
-      restaurantId: data['restaurantId'] ?? '',
-    );
-  }
+@freezed
+abstract class TableType with _$TableType {
+  const factory TableType({
+    required String id,
+    required String name,
+    required String restaurantId,
+  }) = _TableType;
 
-  Map<String, dynamic> toJson() {
-    return {'name': name, 'restaurantId': restaurantId};
-  }
+  factory TableType.fromJson(Map<String, dynamic> json) =>
+      _$TableTypeFromJson(json);
 }

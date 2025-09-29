@@ -1,4 +1,5 @@
 // lib/views/widgets/shared/entity_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:resto2/utils/constants.dart';
 

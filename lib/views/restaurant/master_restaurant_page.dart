@@ -1,15 +1,16 @@
 // lib/views/restaurant/master_restaurant_page.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:resto2/models/role_permission_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
+import 'package:resto2/models/role_permission_model.dart';
+import 'package:resto2/providers/restaurant_provider.dart';
 import 'package:resto2/views/widgets/app_drawer.dart';
 import 'package:resto2/views/widgets/custom_app_bar.dart';
-import '../../providers/restaurant_provider.dart';
 import '../../utils/snackbar.dart';
 import '../widgets/loading_indicator.dart';
 import 'package:resto2/utils/constants.dart';
@@ -24,15 +25,12 @@ class MasterRestaurantPage extends HookConsumerWidget {
     final addressController = useTextEditingController();
     final phoneController = useTextEditingController();
     final localImageFile = useState<File?>(null);
-    final phoneValidationError = useState<String?>(null);
 
-    final isEditingLoading = ref.watch(restaurantControllerProvider);
-    final isCreatingLoading = useState(false);
-
+    final restaurantControllerState = ref.watch(restaurantControllerProvider);
+    final authControllerState = ref.watch(authControllerProvider);
     final restaurantAsync = ref.watch(restaurantStreamProvider);
     final currentUser = ref.watch(currentUserProvider).asData?.value;
     final isCreating = restaurantAsync.asData?.value == null;
-    final imagePicker = useMemoized(() => ImagePicker());
 
     useEffect(() {
       final restaurant = restaurantAsync.asData?.value;
@@ -44,19 +42,26 @@ class MasterRestaurantPage extends HookConsumerWidget {
       return null;
     }, [restaurantAsync]);
 
-    useEffect(() {
-      void listener() {
-        if (phoneValidationError.value != null) {
-          phoneValidationError.value = null;
-        }
-      }
+    ref.listen<AsyncValue<void>>(restaurantControllerProvider, (_, state) {
+      state.whenOrNull(
+        data: (_) {
+          showSnackBar(context, UIMessages.changesSaved);
+          localImageFile.value = null;
+        },
+        error: (e, __) =>
+            showSnackBar(context, 'Error saving changes: $e', isError: true),
+      );
+    });
 
-      phoneController.addListener(listener);
-      return () => phoneController.removeListener(listener);
-    }, [phoneController]);
+    ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
+      state.whenOrNull(
+        error: (e, __) =>
+            showSnackBar(context, 'Error: ${e.toString()}', isError: true),
+      );
+    });
 
     void pickImage() async {
-      final XFile? imageXFile = await imagePicker.pickImage(
+      final imageXFile = await ImagePicker().pickImage(
         source: ImageSource.gallery,
         imageQuality: 70,
       );
@@ -64,61 +69,40 @@ class MasterRestaurantPage extends HookConsumerWidget {
       localImageFile.value = File(imageXFile.path);
     }
 
-    void handleSaveChanges() async {
+    void handleSaveChanges() {
       FocusScope.of(context).unfocus();
       if (formKey.currentState?.validate() ?? false) {
-        final String phoneNumberString = phoneController.text.trim();
-
         if (isCreating) {
-          isCreatingLoading.value = true;
-          try {
-            await ref
-                .read(authControllerProvider.notifier)
-                .createRestaurantAndAssignOwner(
-                  restaurantName: nameController.text,
-                  address: addressController.text,
-                  phone: phoneController.text,
-                  logoFile: localImageFile.value,
-                );
-          } catch (e) {
-            if (!context.mounted) return;
-            showSnackBar(context, 'Error: ${e.toString()}', isError: true);
-          } finally {
-            if (context.mounted) {
-              isCreatingLoading.value = false;
-            }
-          }
+          ref
+              .read(authControllerProvider.notifier)
+              .createRestaurantAndAssignOwner(
+                restaurantName: nameController.text,
+                address: addressController.text,
+                phone: phoneController.text,
+                logoFile: localImageFile.value,
+              );
         } else {
           final existingLogoUrl = restaurantAsync.asData?.value?.logoUrl;
-          try {
-            await ref
-                .read(restaurantControllerProvider.notifier)
-                .saveDetails(
-                  name: nameController.text,
-                  address: addressController.text,
-                  phone: phoneNumberString,
-                  newLogoFile: localImageFile.value,
-                  existingLogoUrl: existingLogoUrl,
-                );
-            if (!context.mounted) return;
-            showSnackBar(context, UIMessages.changesSaved);
-            localImageFile.value = null;
-          } catch (e) {
-            if (!context.mounted) return;
-            showSnackBar(context, 'Error saving changes: $e', isError: true);
-          }
+          ref.read(restaurantControllerProvider.notifier).saveDetails(
+                name: nameController.text,
+                address: addressController.text,
+                phone: phoneController.text.trim(),
+                newLogoFile: localImageFile.value,
+                existingLogoUrl: existingLogoUrl,
+              );
         }
       }
     }
 
-    final isLoading = isEditingLoading || isCreatingLoading.value;
+    final isLoading =
+        restaurantControllerState.isLoading || authControllerState.isLoading;
 
     ImageProvider? getBackgroundImage() {
       if (localImageFile.value != null) {
         return FileImage(localImageFile.value!);
       }
       final networkUrl = restaurantAsync.asData?.value?.logoUrl;
-      if (networkUrl != null) {
+      if (networkUrl != null && networkUrl.isNotEmpty) {
         return NetworkImage(networkUrl);
       }
       return null;
@@ -135,10 +119,7 @@ class MasterRestaurantPage extends HookConsumerWidget {
       drawer: const AppDrawer(),
       body: SafeArea(
         child: GestureDetector(
-          onTap: () {
-            // Dismiss the keyboard when the user taps on an empty space
-            FocusScope.of(context).unfocus();
-          },
+          onTap: () => FocusScope.of(context).unfocus(),
           child: restaurantAsync.when(
             data: (restaurant) => ListView(
               padding: const EdgeInsets.all(24.0),
@@ -158,8 +139,7 @@ class MasterRestaurantPage extends HookConsumerWidget {
                           icon: const Icon(Icons.copy_all_outlined),
                           onPressed: () {
                             Clipboard.setData(
-                              ClipboardData(text: restaurant.id),
-                            );
+                                ClipboardData(text: restaurant.id));
                             showSnackBar(context, 'Restaurant ID Copied!');
                           },
                         ),
@@ -190,15 +170,11 @@ class MasterRestaurantPage extends HookConsumerWidget {
                         right: 0,
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
                           child: IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              size: 18,
-                              color: Colors.black,
-                            ),
+                            icon: const Icon(Icons.edit,
+                                size: 18, color: Colors.black),
                             onPressed: isLoading ? null : pickImage,
                           ),
                         ),
@@ -232,10 +208,9 @@ class MasterRestaurantPage extends HookConsumerWidget {
                       TextFormField(
                         controller: phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: UIStrings.phoneNumber,
                           hintText: UIStrings.phoneNumberHint,
-                          errorText: phoneValidationError.value,
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {

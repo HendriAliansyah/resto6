@@ -10,17 +10,8 @@ class RestaurantService {
 
   Future<String> createRestaurant({required RestaurantModel restaurant}) async {
     final docRef = _db.collection(_collectionPath).doc();
-
-    final newRestaurantWithId = RestaurantModel(
-      id: docRef.id,
-      ownerId: restaurant.ownerId,
-      name: restaurant.name,
-      address: restaurant.address,
-      phone: restaurant.phone,
-      logoUrl: restaurant.logoUrl,
-    );
-
-    await docRef.set(newRestaurantWithId.toJson());
+    // Use copyWith to set the ID before saving
+    await docRef.set(restaurant.copyWith(id: docRef.id).toJson());
     return docRef.id;
   }
 
@@ -29,14 +20,16 @@ class RestaurantService {
   }
 
   Stream<RestaurantModel?> getRestaurantStream(String restaurantId) {
-    return _db.collection(_collectionPath).doc(restaurantId).snapshots().map((
-      snapshot,
-    ) {
-      if (snapshot.exists) {
-        return RestaurantModel.fromFirestore(snapshot);
-      }
-      return null;
-    });
+    return _db.collection(_collectionPath).doc(restaurantId).snapshots().map(
+      (snapshot) {
+        if (snapshot.exists && snapshot.data() != null) {
+          // CORRECTED: Use fromJson and include the document ID
+          return RestaurantModel.fromJson(snapshot.data()!)
+              .copyWith(id: snapshot.id);
+        }
+        return null;
+      },
+    );
   }
 
   Future<void> saveRestaurantDetails(RestaurantModel restaurant) async {
@@ -56,10 +49,8 @@ class RestaurantService {
     required String restaurantId,
     required JoinRequestModel request,
   }) async {
-    final restaurantDoc = await _db
-        .collection(_collectionPath)
-        .doc(restaurantId)
-        .get();
+    final restaurantDoc =
+        await _db.collection(_collectionPath).doc(restaurantId).get();
     if (!restaurantDoc.exists) {
       throw Exception(
         "A restaurant with this ID does not exist. Please check the ID and try again.",
@@ -74,7 +65,6 @@ class RestaurantService {
         .set(request.toJson());
   }
 
-  // New methods for Charge & Tax Rules
   Stream<List<ChargeTaxRuleModel>> getChargeTaxRulesStream(
     String restaurantId,
   ) {
@@ -85,7 +75,14 @@ class RestaurantService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => ChargeTaxRuleModel.fromFirestore(doc))
+              .map((doc) {
+                if (doc.data().isNotEmpty) {
+                  return ChargeTaxRuleModel.fromJson(doc.data())
+                      .copyWith(id: doc.id);
+                }
+                return null;
+              })
+              .whereType<ChargeTaxRuleModel>()
               .toList(),
         );
   }

@@ -1,4 +1,5 @@
 // lib/views/restaurant/widgets/charge_tax_rule_dialog.dart
+
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -24,41 +25,30 @@ class ChargeTaxRuleDialog extends HookConsumerWidget {
     final allOrderTypes =
         ref.watch(orderTypesStreamProvider).asData?.value ?? [];
 
-    // Form state hooks
     final nameController = useTextEditingController(text: rule?.name);
     final ruleType = useState(rule?.ruleType ?? RuleType.tax);
     final valueType = useState(rule?.valueType ?? ValueType.percentage);
-    final valueController = useTextEditingController(
-      text: rule?.value.toString(),
-    );
+    final valueController =
+        useTextEditingController(text: rule?.value.toString());
     final conditionType = useState(rule?.conditionType ?? ConditionType.none);
-    final conditionValue1Controller = useTextEditingController(
-      text: rule?.conditionValue1.toString(),
-    );
-    final conditionValue2Controller = useTextEditingController(
-      text: rule?.conditionValue2.toString(),
-    );
+    final conditionValue1Controller =
+        useTextEditingController(text: rule?.conditionValue1.toString());
+    final conditionValue2Controller =
+        useTextEditingController(text: rule?.conditionValue2?.toString());
     final selectedOrderTypeIds = useState(rule?.applyToOrderTypeIds ?? []);
 
-    final isLoading =
-        ref.watch(chargeTaxRuleControllerProvider).status ==
-        ChargeTaxRuleActionStatus.loading;
+    final isLoading = ref.watch(chargeTaxRuleControllerProvider).isLoading;
 
-    ref.listen<ChargeTaxRuleState>(chargeTaxRuleControllerProvider, (
-      prev,
-      next,
-    ) {
-      if (next.status == ChargeTaxRuleActionStatus.success) {
-        if (context.mounted) Navigator.of(context).pop();
-        showSnackBar(context, UIMessages.ruleSaved);
-      }
-      if (next.status == ChargeTaxRuleActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(chargeTaxRuleControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (context.mounted) Navigator.of(context).pop();
+          showSnackBar(context, UIMessages.ruleSaved);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void handleSubmit() {
@@ -72,6 +62,7 @@ class ChargeTaxRuleDialog extends HookConsumerWidget {
           conditionType: conditionType.value,
           conditionValue1:
               double.tryParse(conditionValue1Controller.text) ?? 0.0,
+          // CORRECTED: Removed the redundant `?? ''`
           conditionValue2: double.tryParse(conditionValue2Controller.text),
           applyToOrderTypeIds: selectedOrderTypeIds.value,
         );
@@ -146,9 +137,8 @@ class ChargeTaxRuleDialog extends HookConsumerWidget {
                     labelText: UIStrings.value,
                     border: OutlineInputBorder(),
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   validator: (v) =>
                       v!.isEmpty ? UIMessages.valueIsRequired : null,
                 ),
@@ -197,9 +187,8 @@ class ChargeTaxRuleDialog extends HookConsumerWidget {
                           : UIStrings.valueAmount,
                       border: const OutlineInputBorder(),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) =>
                         v!.isEmpty ? UIMessages.conditionValueIsRequired : null,
                   ),
@@ -212,9 +201,8 @@ class ChargeTaxRuleDialog extends HookConsumerWidget {
                       labelText: UIStrings.toValue,
                       border: OutlineInputBorder(),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) =>
                         v!.isEmpty ? UIMessages.toValueIsRequired : null,
                   ),

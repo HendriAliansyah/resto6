@@ -1,4 +1,5 @@
 // lib/views/purchase/purchase_history_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -27,7 +28,6 @@ class PurchaseHistoryPage extends ConsumerWidget {
           }
           return inventoryAsync.when(
             data: (inventoryItems) {
-              // Create a map for easy lookup of inventory item names by their ID.
               final inventoryMap = {
                 for (var item in inventoryItems) item.id: item,
               };
@@ -38,9 +38,9 @@ class PurchaseHistoryPage extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final purchase = purchases[index];
                   final item = inventoryMap[purchase.inventoryItemId];
-                  final formattedDate = DateFormat.yMMMd().add_jm().format(
-                    purchase.purchaseDate.toDate(),
-                  );
+                  final formattedDate = DateFormat.yMMMd()
+                      .add_jm()
+                      .format(purchase.purchaseDate.toDate());
 
                   return Card(
                     margin: const EdgeInsets.symmetric(

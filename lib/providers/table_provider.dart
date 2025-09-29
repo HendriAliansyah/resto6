@@ -1,74 +1,63 @@
 // lib/providers/table_provider.dart
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:resto2/models/table_model.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/providers/auth_providers.dart';
-import 'package:resto2/providers/staff_filter_provider.dart';
 import 'package:resto2/providers/table_filter_provider.dart';
 import 'package:resto2/services/table_service.dart';
+import 'package:resto2/providers/staff_filter_provider.dart';
 
-enum TableActionStatus { initial, loading, success, error }
+part 'table_provider.g.dart';
 
-class TableState {
-  final TableActionStatus status;
-  final String? errorMessage;
+@riverpod
+TableService tableService(Ref ref) => TableService();
 
-  TableState({this.status = TableActionStatus.initial, this.errorMessage});
-}
-
-final tableServiceProvider = Provider((ref) => TableService());
-
-final tablesStreamProvider = StreamProvider.autoDispose<List<TableModel>>((
-  ref,
-) {
-  final user = ref.watch(currentUserProvider).asData?.value;
-  if (user?.restaurantId != null) {
-    return ref.watch(tableServiceProvider).getTablesStream(user!.restaurantId!);
+@riverpod
+Stream<List<TableModel>> tablesStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
+  if (restaurantId != null) {
+    return ref.watch(tableServiceProvider).getTablesStream(restaurantId);
   }
   return Stream.value([]);
-});
+}
 
-final sortedTablesProvider = Provider.autoDispose<List<TableModel>>((ref) {
+@riverpod
+List<TableModel> sortedTables(Ref ref) {
   final tables = ref.watch(tablesStreamProvider).asData?.value ?? [];
   final filter = ref.watch(tableFilterProvider);
 
-  // Apply search and type filters
   final filteredList = tables.where((table) {
-    final searchMatch =
-        filter.searchQuery.isEmpty ||
+    final searchMatch = filter.searchQuery.isEmpty ||
         table.name.toLowerCase().contains(filter.searchQuery.toLowerCase());
     final typeMatch =
         filter.tableTypeId == null || table.tableTypeId == filter.tableTypeId;
     return searchMatch && typeMatch;
   }).toList();
 
-  // Apply sorting
-  filteredList.sort((a, b) {
-    int comparison;
-    switch (filter.sortOption) {
-      case TableSortOption.byName:
-        comparison = a.name.compareTo(b.name);
-        break;
-      case TableSortOption.byCapacity:
-        comparison = a.capacity.compareTo(b.capacity);
-        break;
-    }
-    return filter.sortOrder == SortOrder.asc ? comparison : -comparison;
-  });
-
-  return filteredList;
-});
-
-final tableControllerProvider =
-    StateNotifierProvider.autoDispose<TableController, TableState>((ref) {
-      return TableController(ref);
+  return filteredList
+    ..sort((a, b) {
+      int comparison;
+      switch (filter.sortOption) {
+        case TableSortOption.byName:
+          comparison = a.name.compareTo(b.name);
+          break;
+        case TableSortOption.byCapacity:
+          comparison = a.capacity.compareTo(b.capacity);
+          break;
+      }
+      return filter.sortOrder == SortOrder.asc ? comparison : -comparison;
     });
+}
 
-class TableController extends StateNotifier<TableState> {
-  final Ref _ref;
-  TableController(this._ref) : super(TableState());
+@riverpod
+class TableController extends _$TableController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
 
   bool _isNameUnique(String name, String? tableIdToExclude) {
-    final tables = _ref.read(tablesStreamProvider).asData?.value ?? [];
+    final tables = ref.read(tablesStreamProvider).asData?.value ?? [];
     return tables
         .where(
           (table) =>
@@ -82,47 +71,27 @@ class TableController extends StateNotifier<TableState> {
     required String name,
     required String tableTypeId,
     required int capacity,
-    required String? orderTypeId,
+    String? orderTypeId,
   }) async {
-    state = TableState(status: TableActionStatus.loading);
-    if (!_isNameUnique(name, null)) {
-      state = TableState(
-        status: TableActionStatus.error,
-        errorMessage: 'A table with this name already exists.',
-      );
-      return;
-    }
+    state = const AsyncLoading();
+    final restaurantId = ref.read(userRestaurantIdProvider);
 
-    final restaurantId = _ref
-        .read(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
-    if (restaurantId == null) {
-      state = TableState(
-        status: TableActionStatus.error,
-        errorMessage: 'User not in a restaurant.',
-      );
-      return;
-    }
+    state = await AsyncValue.guard(() async {
+      if (restaurantId == null) throw Exception('User not in a restaurant.');
+      if (!_isNameUnique(name, null)) {
+        throw Exception('A table with this name already exists.');
+      }
 
-    final newTable = {
-      'name': name,
-      'tableTypeId': tableTypeId,
-      'capacity': capacity,
-      'restaurantId': restaurantId,
-      'orderTypeId': orderTypeId,
-    };
-
-    try {
-      await _ref.read(tableServiceProvider).addTable(newTable);
-      state = TableState(status: TableActionStatus.success);
-    } catch (e) {
-      state = TableState(
-        status: TableActionStatus.error,
-        errorMessage: e.toString(),
+      final newTable = TableModel(
+        id: '', // Firestore generates
+        name: name,
+        tableTypeId: tableTypeId,
+        capacity: capacity,
+        restaurantId: restaurantId,
+        orderTypeId: orderTypeId,
       );
-    }
+      await ref.read(tableServiceProvider).addTable(newTable);
+    });
   }
 
   Future<void> updateTable({
@@ -130,40 +99,26 @@ class TableController extends StateNotifier<TableState> {
     required String name,
     required String tableTypeId,
     required int capacity,
-    required String? orderTypeId,
+    String? orderTypeId,
   }) async {
-    state = TableState(status: TableActionStatus.loading);
-    if (!_isNameUnique(name, tableId)) {
-      state = TableState(
-        status: TableActionStatus.error,
-        errorMessage: 'Another table with this name already exists.',
-      );
-      return;
-    }
-
-    final updatedTable = {
-      'name': name,
-      'tableTypeId': tableTypeId,
-      'capacity': capacity,
-      'orderTypeId': orderTypeId,
-    };
-
-    try {
-      await _ref.read(tableServiceProvider).updateTable(tableId, updatedTable);
-      state = TableState(status: TableActionStatus.success);
-    } catch (e) {
-      state = TableState(
-        status: TableActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (!_isNameUnique(name, tableId)) {
+        throw Exception('Another table with this name already exists.');
+      }
+      final updateData = {
+        'name': name,
+        'tableTypeId': tableTypeId,
+        'capacity': capacity,
+        'orderTypeId': orderTypeId,
+      };
+      await ref.read(tableServiceProvider).updateTable(tableId, updateData);
+    });
   }
 
   Future<void> deleteTable(String tableId) async {
-    try {
-      await _ref.read(tableServiceProvider).deleteTable(tableId);
-    } catch (e) {
-      // You can expand error handling here if needed
-    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+        () => ref.read(tableServiceProvider).deleteTable(tableId));
   }
 }

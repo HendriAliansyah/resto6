@@ -1,22 +1,24 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+// lib/providers/inventory_filter_provider.dart
+
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/providers/staff_filter_provider.dart'; // Reuse SortOrder
 
-class InventoryFilterState {
-  final String searchQuery;
-  final SortOrder sortOrder;
+part 'inventory_filter_provider.freezed.dart';
+part 'inventory_filter_provider.g.dart';
 
-  InventoryFilterState({this.searchQuery = '', this.sortOrder = SortOrder.asc});
-
-  InventoryFilterState copyWith({String? searchQuery, SortOrder? sortOrder}) {
-    return InventoryFilterState(
-      searchQuery: searchQuery ?? this.searchQuery,
-      sortOrder: sortOrder ?? this.sortOrder,
-    );
-  }
+@freezed
+abstract class InventoryFilterState with _$InventoryFilterState {
+  const factory InventoryFilterState({
+    @Default('') String searchQuery,
+    @Default(SortOrder.asc) SortOrder sortOrder,
+  }) = _InventoryFilterState;
 }
 
-class InventoryFilterNotifier extends StateNotifier<InventoryFilterState> {
-  InventoryFilterNotifier() : super(InventoryFilterState());
+@riverpod
+class InventoryFilter extends _$InventoryFilter {
+  @override
+  InventoryFilterState build() => const InventoryFilterState();
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
@@ -26,10 +28,3 @@ class InventoryFilterNotifier extends StateNotifier<InventoryFilterState> {
     state = state.copyWith(sortOrder: order);
   }
 }
-
-final inventoryFilterProvider = StateNotifierProvider.autoDispose<
-  InventoryFilterNotifier,
-  InventoryFilterState
->((ref) {
-  return InventoryFilterNotifier();
-});

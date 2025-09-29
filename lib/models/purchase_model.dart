@@ -1,46 +1,24 @@
 // lib/models/purchase_model.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:resto2/utils/timestamp_converter.dart';
 
-class PurchaseModel {
-  final String id;
-  final String inventoryItemId;
-  final double quantity;
-  final double purchasePrice;
-  final Timestamp purchaseDate;
-  final String restaurantId;
-  final String? notes;
+part 'purchase_model.freezed.dart';
+part 'purchase_model.g.dart';
 
-  PurchaseModel({
-    required this.id,
-    required this.inventoryItemId,
-    required this.quantity,
-    required this.purchasePrice,
-    required this.purchaseDate,
-    required this.restaurantId,
-    this.notes,
-  });
+@freezed
+abstract class PurchaseModel with _$PurchaseModel {
+  const factory PurchaseModel({
+    required String id,
+    required String inventoryItemId,
+    required double quantity,
+    required double purchasePrice,
+    @TimestampConverter() required Timestamp purchaseDate,
+    required String restaurantId,
+    String? notes,
+  }) = _PurchaseModel;
 
-  factory PurchaseModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return PurchaseModel(
-      id: doc.id,
-      inventoryItemId: data['inventoryItemId'] ?? '',
-      quantity: (data['quantity'] ?? 0.0).toDouble(),
-      purchasePrice: (data['purchasePrice'] ?? 0.0).toDouble(),
-      purchaseDate: data['purchaseDate'] ?? Timestamp.now(),
-      restaurantId: data['restaurantId'] ?? '',
-      notes: data['notes'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'inventoryItemId': inventoryItemId,
-      'quantity': quantity,
-      'purchasePrice': purchasePrice,
-      'purchaseDate': purchaseDate,
-      'restaurantId': restaurantId,
-      'notes': notes,
-    };
-  }
+  factory PurchaseModel.fromJson(Map<String, dynamic> json) =>
+      _$PurchaseModelFromJson(json);
 }

@@ -1,41 +1,21 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/models/restaurant_model.dart
 
-class RestaurantModel {
-  final String id;
-  final String? ownerId; // Ensure this links to the user
-  final String name;
-  final String address;
-  final String phone;
-  final String? logoUrl;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  RestaurantModel({
-    required this.id,
-    this.ownerId,
-    required this.name,
-    required this.address,
-    required this.phone,
-    this.logoUrl,
-  });
+part 'restaurant_model.freezed.dart';
+part 'restaurant_model.g.dart';
 
-  factory RestaurantModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return RestaurantModel(
-      id: doc.id,
-      ownerId: data['ownerId'],
-      name: data['name'] ?? '',
-      address: data['address'] ?? '',
-      phone: data['phone'] ?? '',
-      logoUrl: data['logoUrl'],
-    );
-  }
+@freezed
+abstract class RestaurantModel with _$RestaurantModel {
+  const factory RestaurantModel({
+    required String id,
+    String? ownerId,
+    required String name,
+    required String address,
+    required String phone,
+    String? logoUrl,
+  }) = _RestaurantModel;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'ownerId': ownerId,
-      'name': name,
-      'address': address,
-      'phone': phone,
-      'logoUrl': logoUrl,
-    };
-  }
+  factory RestaurantModel.fromJson(Map<String, dynamic> json) =>
+      _$RestaurantModelFromJson(json);
 }

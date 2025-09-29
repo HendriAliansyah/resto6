@@ -1,4 +1,5 @@
 // lib/views/order/widgets/occupied_table_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -14,9 +15,8 @@ class OccupiedTableDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final formattedDate = DateFormat.yMd().add_jm().format(
-      order.createdAt.toDate(),
-    );
+    final formattedDate =
+        DateFormat.yMd().add_jm().format(order.createdAt.toDate());
 
     return AlertDialog(
       title: Row(
@@ -58,10 +58,8 @@ class OccupiedTableDialog extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                item.menuName,
-                                style: theme.textTheme.bodyLarge,
-                              ),
+                              Text(item.menuName,
+                                  style: theme.textTheme.bodyLarge),
                               Text(
                                 '${item.quantity} x \$${item.price.toStringAsFixed(2)}',
                                 style: theme.textTheme.bodySmall,
@@ -72,9 +70,8 @@ class OccupiedTableDialog extends ConsumerWidget {
                         const SizedBox(width: 16),
                         Text(
                           '\$${(item.quantity * item.price).toStringAsFixed(2)}',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: theme.textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -159,14 +156,13 @@ class OccupiedTableDialog extends ConsumerWidget {
           ),
           Text(
             '\$${amount.toStringAsFixed(2)}',
-            style:
-                (isTotal
-                        ? theme.textTheme.titleLarge
-                        : theme.textTheme.bodyLarge)
-                    ?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isTotal ? theme.colorScheme.primary : null,
-                    ),
+            style: (isTotal
+                    ? theme.textTheme.titleLarge
+                    : theme.textTheme.bodyLarge)
+                ?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isTotal ? theme.colorScheme.primary : null,
+            ),
           ),
         ],
       ),

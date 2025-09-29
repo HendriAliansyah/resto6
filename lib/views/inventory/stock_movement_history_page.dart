@@ -1,4 +1,5 @@
 // lib/views/inventory/stock_movement_history_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -30,8 +31,8 @@ class StockMovementHistoryPage extends HookConsumerWidget {
             padding: const EdgeInsets.all(16.0),
             child: InventoryItemSelector(
               initialValue: selectedItem.value,
-              validator: (item) => null, // No validation needed here
-              onSaved: (item) {}, // Not used here
+              validator: (item) => null,
+              onSaved: (item) {},
               onChanged: (item) {
                 selectedItem.value = item;
               },

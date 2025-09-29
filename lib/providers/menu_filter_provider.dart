@@ -1,85 +1,42 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+// lib/providers/menu_filter_provider.dart
+
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/providers/staff_filter_provider.dart'; // Reuse SortOrder enum
 
-// Enum for sorting criteria
+part 'menu_filter_provider.freezed.dart';
+part 'menu_filter_provider.g.dart';
+
 enum MenuSortOption { byName, byPrice }
 
-// State class to hold all filter and sort settings
-class MenuFilterState {
-  final String searchQuery;
-  final String? courseId;
-  final MenuSortOption sortOption;
-  final SortOrder sortOrder;
-
-  MenuFilterState({
-    this.searchQuery = '',
-    this.courseId,
-    this.sortOption = MenuSortOption.byName,
-    this.sortOrder = SortOrder.asc,
-  });
-
-  // copyWith is a helper that can still be useful, but our notifier will be more explicit.
-  MenuFilterState copyWith({
-    String? searchQuery,
+@freezed
+abstract class MenuFilterState with _$MenuFilterState {
+  const factory MenuFilterState({
+    @Default('') String searchQuery,
     String? courseId,
-    MenuSortOption? sortOption,
-    SortOrder? sortOrder,
-  }) {
-    return MenuFilterState(
-      searchQuery: searchQuery ?? this.searchQuery,
-      courseId: courseId ?? this.courseId,
-      sortOption: sortOption ?? this.sortOption,
-      sortOrder: sortOrder ?? this.sortOrder,
-    );
-  }
+    @Default(MenuSortOption.byName) MenuSortOption sortOption,
+    @Default(SortOrder.asc) SortOrder sortOrder,
+  }) = _MenuFilterState;
 }
 
-// StateNotifier to manage the state
-class MenuFilterNotifier extends StateNotifier<MenuFilterState> {
-  MenuFilterNotifier() : super(MenuFilterState());
+@riverpod
+class MenuFilter extends _$MenuFilter {
+  @override
+  MenuFilterState build() => const MenuFilterState();
 
-  // THE FIX IS HERE: Each method now reconstructs the state, preserving other values.
   void setSearchQuery(String query) {
-    state = MenuFilterState(
-      searchQuery: query,
-      courseId: state.courseId, // Preserve existing course filter
-      sortOption: state.sortOption,
-      sortOrder: state.sortOrder,
-    );
+    state = state.copyWith(searchQuery: query);
   }
 
   void setCourseFilter(String? courseId) {
-    state = MenuFilterState(
-      searchQuery: state.searchQuery,
-      courseId: courseId, // Set the new course filter (can be null)
-      sortOption: state.sortOption,
-      sortOrder: state.sortOrder,
-    );
+    state = state.copyWith(courseId: courseId);
   }
 
   void setSortOption(MenuSortOption option) {
-    state = MenuFilterState(
-      searchQuery: state.searchQuery,
-      courseId: state.courseId,
-      sortOption: option, // Set the new sort option
-      sortOrder: state.sortOrder,
-    );
+    state = state.copyWith(sortOption: option);
   }
 
   void setSortOrder(SortOrder order) {
-    state = MenuFilterState(
-      searchQuery: state.searchQuery,
-      courseId: state.courseId,
-      sortOption: state.sortOption,
-      sortOrder: order, // Set the new sort order
-    );
+    state = state.copyWith(sortOrder: order);
   }
 }
-
-// The final provider that the UI will interact with
-final menuFilterProvider =
-    StateNotifierProvider.autoDispose<MenuFilterNotifier, MenuFilterState>((
-      ref,
-    ) {
-      return MenuFilterNotifier();
-    });

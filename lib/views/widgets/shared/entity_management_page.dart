@@ -1,4 +1,5 @@
 // lib/views/widgets/shared/entity_management_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:resto2/views/widgets/app_drawer.dart';
 import 'package:resto2/views/widgets/custom_app_bar.dart';

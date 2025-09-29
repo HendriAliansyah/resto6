@@ -1,4 +1,5 @@
 // lib/views/staff/staff_management_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -73,9 +74,7 @@ class CurrentStaffView extends HookConsumerWidget {
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) {
-                    ref
-                        .read(staffFilterProvider.notifier)
-                        .setSearchQuery(value);
+                    ref.read(staffFilterProvider.notifier).setSearchQuery(value);
                   },
                 ),
                 const SizedBox(height: 16),
@@ -153,9 +152,7 @@ class CurrentStaffView extends HookConsumerWidget {
                     SortOrderToggle(
                       currentOrder: filterState.sortOrder,
                       onOrderChanged: (order) {
-                        ref
-                            .read(staffFilterProvider.notifier)
-                            .setSortOrder(order);
+                        ref.read(staffFilterProvider.notifier).setSortOrder(order);
                       },
                     ),
                   ],
@@ -208,12 +205,7 @@ class JoinRequestsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final joinRequestsAsync = ref.watch(joinRequestsStreamProvider);
-    final staffController = ref.read(staffControllerProvider);
-    final restaurantId = ref
-        .watch(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
+    final restaurantId = ref.watch(userRestaurantIdProvider);
 
     void onAccept(JoinRequestModel request) async {
       if (restaurantId == null) return;
@@ -249,11 +241,11 @@ class JoinRequestsView extends ConsumerWidget {
 
       if (selectedRole != null && context.mounted) {
         try {
-          await staffController.approveJoinRequest(
-            restaurantId: restaurantId,
-            userId: request.userId,
-            role: selectedRole,
-          );
+          await ref.read(staffControllerProvider).approveJoinRequest(
+                restaurantId: restaurantId,
+                userId: request.userId,
+                role: selectedRole,
+              );
           if (context.mounted) {
             showSnackBar(
               context,
@@ -274,10 +266,10 @@ class JoinRequestsView extends ConsumerWidget {
     void onReject(JoinRequestModel request) async {
       if (restaurantId == null) return;
       try {
-        await staffController.rejectJoinRequest(
-          restaurantId: restaurantId,
-          userId: request.userId,
-        );
+        await ref.read(staffControllerProvider).rejectJoinRequest(
+              restaurantId: restaurantId,
+              userId: request.userId,
+            );
         if (context.mounted) {
           showSnackBar(
             context,

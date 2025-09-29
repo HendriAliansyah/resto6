@@ -1,45 +1,30 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:resto2/models/role_permission_model.dart'; // Import this
+// lib/providers/staff_filter_provider.dart
 
-// Enum for what to sort by
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:resto2/models/role_permission_model.dart';
+
+part 'staff_filter_provider.freezed.dart';
+part 'staff_filter_provider.g.dart';
+
 enum StaffSortOption { byName, byRole }
 
-// Enum for the sort order
 enum SortOrder { asc, desc }
 
-// State class to hold all settings
-class StaffFilterState {
-  final StaffSortOption sortOption;
-  final SortOrder sortOrder;
-  final String searchQuery;
-  final UserRole? role; // New property for the role filter
-
-  StaffFilterState({
-    this.sortOption = StaffSortOption.byRole,
-    this.sortOrder = SortOrder.asc,
-    this.searchQuery = '',
-    this.role, // Default to null (all roles)
-  });
-
-  // This is kept for internal consistency but the notifier will use a more explicit pattern.
-  StaffFilterState copyWith({
-    StaffSortOption? sortOption,
-    SortOrder? sortOrder,
-    String? searchQuery,
+@freezed
+abstract class StaffFilterState with _$StaffFilterState {
+  const factory StaffFilterState({
+    @Default(StaffSortOption.byRole) StaffSortOption sortOption,
+    @Default(SortOrder.asc) SortOrder sortOrder,
+    @Default('') String searchQuery,
     UserRole? role,
-  }) {
-    return StaffFilterState(
-      sortOption: sortOption ?? this.sortOption,
-      sortOrder: sortOrder ?? this.sortOrder,
-      searchQuery: searchQuery ?? this.searchQuery,
-      role: role, // Allow role to be explicitly set to null
-    );
-  }
+  }) = _StaffFilterState;
 }
 
-// StateNotifier to manage the filter state
-class StaffFilterNotifier extends StateNotifier<StaffFilterState> {
-  StaffFilterNotifier() : super(StaffFilterState());
+@riverpod
+class StaffFilter extends _$StaffFilter {
+  @override
+  StaffFilterState build() => const StaffFilterState();
 
   void setSortOption(StaffSortOption option) {
     state = state.copyWith(sortOption: option);
@@ -53,22 +38,7 @@ class StaffFilterNotifier extends StateNotifier<StaffFilterState> {
     state = state.copyWith(searchQuery: query);
   }
 
-  // THE FIX IS HERE: This method now correctly handles being set to null.
   void setRoleFilter(UserRole? role) {
-    // We create a new state object to ensure the change is always applied.
-    state = StaffFilterState(
-      role: role, // Explicitly set the new value (which can be null)
-      searchQuery: state.searchQuery,
-      sortOption: state.sortOption,
-      sortOrder: state.sortOrder,
-    );
+    state = state.copyWith(role: role);
   }
 }
-
-// The final provider the UI will use
-final staffFilterProvider =
-    StateNotifierProvider.autoDispose<StaffFilterNotifier, StaffFilterState>((
-      ref,
-    ) {
-      return StaffFilterNotifier();
-    });

@@ -1,10 +1,11 @@
 // lib/views/auth/register_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/views/widgets/shared/app_text_form_field.dart';
-import '../../providers/auth_providers.dart';
 import '../../utils/snackbar.dart';
 import '../../utils/constants.dart';
 import '../widgets/loading_indicator.dart';
@@ -19,28 +20,35 @@ class RegisterScreen extends HookConsumerWidget {
     final emailController = useTextEditingController();
     final passwordController = useTextEditingController();
     final confirmPasswordController = useTextEditingController();
-    final isLoading = ref.watch(authControllerProvider);
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
     final isPasswordVisible = useState(false);
     final isConfirmPasswordVisible = useState(false);
+
+    ref.listen<AsyncValue<void>>(authControllerProvider, (_, state) {
+      state.when(
+        data: (_) {
+          if (context.mounted) {
+            showSnackBar(context, UIMessages.registrationSuccessful);
+          }
+        },
+        error: (error, stackTrace) {
+          if (context.mounted) {
+            showSnackBar(context, 'Error: ${error.toString()}', isError: true);
+          }
+        },
+        loading: () {},
+      );
+    });
 
     void handleRegister() async {
       FocusScope.of(context).unfocus();
       if (formKey.currentState?.validate() ?? false) {
-        try {
-          final success = await ref
-              .read(authControllerProvider.notifier)
-              .signUp(
-                email: emailController.text.trim(),
-                password: passwordController.text.trim(),
-                displayName: displayNameController.text.trim(),
-              );
-          if (context.mounted && success) {
-            showSnackBar(context, UIMessages.registrationSuccessful);
-          }
-        } catch (e) {
-          if (!context.mounted) return;
-          showSnackBar(context, 'Error: ${e.toString()}', isError: true);
-        }
+        ref.read(authControllerProvider.notifier).signUp(
+              email: emailController.text.trim(),
+              password: passwordController.text.trim(),
+              displayName: displayNameController.text.trim(),
+            );
       }
     }
 
@@ -69,10 +77,10 @@ class RegisterScreen extends HookConsumerWidget {
                   UIStrings.startYourJourney,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha(153),
-                  ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha(153),
+                      ),
                 ),
                 const SizedBox(height: 32),
                 Form(

@@ -1,4 +1,5 @@
 // lib/views/widgets/multi_select_form_field.dart
+
 import 'package:flutter/material.dart';
 import 'package:resto2/utils/constants.dart';
 
@@ -14,81 +15,81 @@ class MultiSelectBottomSheetField<T> extends FormField<List<T>> {
     super.validator,
     super.initialValue,
   }) : super(
-         builder: (FormFieldState<List<T>> state) {
-           final selectedItems = state.value ?? [];
+          builder: (FormFieldState<List<T>> state) {
+            final selectedItems = state.value ?? [];
 
-           void showBottomSheet(BuildContext context) {
-             showModalBottomSheet(
-               context: context,
-               isScrollControlled: true,
-               useSafeArea: true,
-               shape: const RoundedRectangleBorder(
-                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-               ),
-               builder: (context) {
-                 return DraggableScrollableSheet(
-                   expand: false,
-                   initialChildSize: 0.8,
-                   maxChildSize: 0.9,
-                   builder: (context, scrollController) {
-                     return _MultiSelectBottomSheet(
-                       scrollController: scrollController,
-                       items: items,
-                       initialValue: selectedItems,
-                       dialogTitle: dialogTitle,
-                       searchHint: searchHint,
-                       tileLabelBuilder: tileLabelBuilder,
-                       onConfirm: (values) {
-                         state.didChange(values);
-                       },
-                     );
-                   },
-                 );
-               },
-             );
-           }
+            void showBottomSheet(BuildContext context) {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (context) {
+                  return DraggableScrollableSheet(
+                    expand: false,
+                    initialChildSize: 0.8,
+                    maxChildSize: 0.9,
+                    builder: (context, scrollController) {
+                      return _MultiSelectBottomSheet(
+                        scrollController: scrollController,
+                        items: items,
+                        initialValue: selectedItems,
+                        dialogTitle: dialogTitle,
+                        searchHint: searchHint,
+                        tileLabelBuilder: tileLabelBuilder,
+                        onConfirm: (values) {
+                          state.didChange(values);
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            }
 
-           return InkWell(
-             onTap: () => showBottomSheet(state.context),
-             child: InputDecorator(
-               decoration: InputDecoration(
-                 labelText: dialogTitle,
-                 errorText: state.errorText,
-                 border: const OutlineInputBorder(),
-                 contentPadding: const EdgeInsets.symmetric(
-                   horizontal: 12,
-                   vertical: 8,
-                 ),
-               ),
-               child: Row(
-                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                 children: <Widget>[
-                   Expanded(
-                     child: selectedItems.isEmpty
-                         ? Text(
-                             UIStrings.selectAnItemPrompt,
-                             style: Theme.of(state.context)
-                                 .textTheme
-                                 .titleMedium
-                                 ?.copyWith(
-                                   color: Theme.of(state.context).hintColor,
-                                   fontWeight: FontWeight.w400,
-                                 ),
-                           )
-                         : Text(
-                             '${selectedItems.length} ${UIStrings.itemsSelectedSuffix}',
-                             style: Theme.of(
-                               state.context,
-                             ).textTheme.titleMedium,
-                           ),
-                   ),
-                   const Icon(Icons.arrow_drop_down),
-                 ],
-               ),
-             ),
-           );
-         },
-       );
+            return InkWell(
+              onTap: () => showBottomSheet(state.context),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: dialogTitle,
+                  errorText: state.errorText,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Expanded(
+                      child: selectedItems.isEmpty
+                          ? Text(
+                              UIStrings.selectAnItemPrompt,
+                              style: Theme.of(state.context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(state.context).hintColor,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                            )
+                          : Text(
+                              '${selectedItems.length} ${UIStrings.itemsSelectedSuffix}',
+                              style: Theme.of(
+                                state.context,
+                              ).textTheme.titleMedium,
+                            ),
+                    ),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
 }
 
 class _MultiSelectBottomSheet<T> extends StatefulWidget {
@@ -221,8 +222,7 @@ class _MultiSelectBottomSheetState<T>
               final item = _filteredItems[index];
               return CheckboxListTile(
                 value: _selectedValues.contains(item),
-                title:
-                    widget.tileLabelBuilder?.call(item) ??
+                title: widget.tileLabelBuilder?.call(item) ??
                     Text(item.toString()),
                 onChanged: (bool? isSelected) {
                   setState(() {

@@ -1,4 +1,5 @@
 // lib/views/inventory/widgets/inventory_bottom_sheet.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -19,28 +20,23 @@ class InventoryBottomSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditing = item != null;
     final nameController = useTextEditingController(text: item?.name);
-    final descriptionController = useTextEditingController(
-      text: item?.description,
-    );
+    final descriptionController =
+        useTextEditingController(text: item?.description);
     final localImageFile = useState<File?>(null);
     final formKey = useMemoized(() => GlobalKey<FormState>());
 
-    final isLoading =
-        ref.watch(inventoryControllerProvider).status ==
-        InventoryActionStatus.loading;
+    final isLoading = ref.watch(inventoryControllerProvider).isLoading;
 
-    ref.listen<InventoryState>(inventoryControllerProvider, (prev, next) {
-      if (next.status == InventoryActionStatus.success) {
-        if (context.mounted) Navigator.of(context).pop();
-        showSnackBar(context, UIMessages.inventoryItemSaved);
-      }
-      if (next.status == InventoryActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(inventoryControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (context.mounted) Navigator.of(context).pop();
+          showSnackBar(context, UIMessages.inventoryItemSaved);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void pickImage() async {
@@ -98,11 +94,11 @@ class InventoryBottomSheet extends HookConsumerWidget {
                             fit: BoxFit.fill,
                           )
                         : (item?.imageUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(item!.imageUrl!),
-                                  fit: BoxFit.fill,
-                                )
-                              : null),
+                            ? DecorationImage(
+                                image: NetworkImage(item!.imageUrl!),
+                                fit: BoxFit.fill,
+                              )
+                            : null),
                   ),
                   child: localImageFile.value == null && item?.imageUrl == null
                       ? const Center(

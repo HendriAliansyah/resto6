@@ -1,4 +1,4 @@
-// lib/services/inventory_service.dart (Final, Corrected Code)
+// lib/services/inventory_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:resto2/models/inventory_item_model.dart';
 
@@ -12,15 +12,16 @@ class InventoryService {
         .where('restaurantId', isEqualTo: restaurantId)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => InventoryItem.fromFirestore(doc))
-                  .toList(),
+          (snapshot) => snapshot.docs.map((doc) {
+            return InventoryItem.fromJson(doc.data()).copyWith(id: doc.id);
+          }).toList(),
         );
   }
 
-  Future<DocumentReference> addInventoryItem(Map<String, dynamic> data) async {
-    return await _db.collection(_collectionPath).add(data);
+  Future<DocumentReference> addInventoryItem(InventoryItem item) async {
+    final docRef = _db.collection(_collectionPath).doc();
+    await docRef.set(item.copyWith(id: docRef.id).toJson());
+    return docRef;
   }
 
   Future<void> updateInventoryItem(String id, Map<String, dynamic> data) async {
@@ -31,8 +32,6 @@ class InventoryService {
     await _db.collection(_collectionPath).doc(id).delete();
   }
 
-  // THIS IS THE ONLY ADDITION
-  // It gets the reference using your exact structure.
   DocumentReference getInventoryItemRef(String id) {
     return _db.collection(_collectionPath).doc(id);
   }

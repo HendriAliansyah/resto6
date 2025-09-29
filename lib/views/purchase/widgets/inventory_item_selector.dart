@@ -1,4 +1,5 @@
 // lib/views/purchase/widgets/inventory_item_selector.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -14,55 +15,55 @@ class InventoryItemSelector extends FormField<InventoryItem> {
     super.initialValue,
     ValueChanged<InventoryItem?>? onChanged,
   }) : super(
-         builder: (FormFieldState<InventoryItem> state) {
-           final context = state.context;
+          builder: (FormFieldState<InventoryItem> state) {
+            final context = state.context;
 
-           void showItemSelectionSheet() {
-             showModalBottomSheet(
-               context: context,
-               isScrollControlled: true,
-               useSafeArea: true,
-               builder: (_) => DraggableScrollableSheet(
-                 expand: false,
-                 initialChildSize: 0.9,
-                 maxChildSize: 1.0,
-                 builder: (context, scrollController) {
-                   return _InventoryItemSelectionSheet(
-                     scrollController: scrollController,
-                     onItemSelected: (item) {
-                       state.didChange(item);
-                       if (onChanged != null) {
-                         onChanged(item);
-                       }
-                       Navigator.pop(context);
-                     },
-                   );
-                 },
-               ),
-             );
-           }
+            void showItemSelectionSheet() {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => DraggableScrollableSheet(
+                  expand: false,
+                  initialChildSize: 0.9,
+                  maxChildSize: 1.0,
+                  builder: (context, scrollController) {
+                    return _InventoryItemSelectionSheet(
+                      scrollController: scrollController,
+                      onItemSelected: (item) {
+                        state.didChange(item);
+                        if (onChanged != null) {
+                          onChanged(item);
+                        }
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              );
+            }
 
-           return InkWell(
-             onTap: showItemSelectionSheet,
-             child: InputDecorator(
-               decoration: InputDecoration(
-                 labelText: UIStrings.inventoryItem,
-                 border: const OutlineInputBorder(),
-                 errorText: state.errorText,
-                 suffixIcon: const Icon(Icons.arrow_drop_down),
-               ),
-               child: Text(
-                 state.value?.name ?? UIStrings.selectAnItemPrompt,
-                 style: state.value == null
-                     ? Theme.of(context).textTheme.bodyLarge?.copyWith(
-                         color: Theme.of(context).hintColor,
-                       )
-                     : Theme.of(context).textTheme.bodyLarge,
-               ),
-             ),
-           );
-         },
-       );
+            return InkWell(
+              onTap: showItemSelectionSheet,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: UIStrings.inventoryItem,
+                  border: const OutlineInputBorder(),
+                  errorText: state.errorText,
+                  suffixIcon: const Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(
+                  state.value?.name ?? UIStrings.selectAnItemPrompt,
+                  style: state.value == null
+                      ? Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Theme.of(context).hintColor,
+                          )
+                      : Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            );
+          },
+        );
 }
 
 class _InventoryItemSelectionSheet extends HookConsumerWidget {

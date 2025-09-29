@@ -13,17 +13,15 @@ class OrderService {
   final String _menusCollectionPath = 'menus';
   final String _stockMovementsCollectionPath = 'stockMovements';
 
-  /// Saves a new order to the database.
-  Future<void> createOrder(OrderModel order) {
-    return _db.collection(_collectionPath).add(order.toJson());
+  Future<void> createOrder(OrderModel order) async {
+    final docRef = _db.collection(_collectionPath).doc();
+    await docRef.set(order.copyWith(id: docRef.id).toJson());
   }
 
-  /// Adds a generic update method for orders.
   Future<void> updateOrder(String orderId, Map<String, dynamic> data) {
     return _db.collection(_collectionPath).doc(orderId).update(data);
   }
 
-  /// Updates a list of order items to a new status in a single batch write.
   Future<void> batchUpdateOrderItemStatus({
     required List<OrderItemSource> sources,
     required OrderItemStatus newStatus,
@@ -31,29 +29,27 @@ class OrderService {
     required String userDisplayName,
   }) async {
     final batch = _db.batch();
-
-    // Group sources by orderId to read each order only once
     final Map<String, List<String>> orderIdToItemIds = {};
     for (final source in sources) {
       (orderIdToItemIds[source.orderId] ??= []).add(source.itemId);
     }
 
-    // Process each order
     for (final entry in orderIdToItemIds.entries) {
       final orderId = entry.key;
       final itemIds = entry.value;
       final orderRef = _db.collection(_collectionPath).doc(orderId);
       final orderSnapshot = await orderRef.get();
 
-      if (orderSnapshot.exists) {
-        final order = OrderModel.fromFirestore(orderSnapshot);
+      if (orderSnapshot.exists && orderSnapshot.data() != null) {
+        final order = OrderModel.fromJson(orderSnapshot.data()!)
+            .copyWith(id: orderSnapshot.id);
         bool needsUpdate = false;
 
         final updatedItems = order.items.map((item) {
           if (itemIds.contains(item.id) &&
               item.status == OrderItemStatus.pending) {
             needsUpdate = true;
-            return item.toJson()..['status'] = newStatus.name;
+            return item.copyWith(status: newStatus).toJson();
           }
           return item.toJson();
         }).toList();
@@ -63,7 +59,6 @@ class OrderService {
         }
       }
     }
-
     await batch.commit();
   }
 
@@ -88,7 +83,8 @@ class OrderService {
         .get();
 
     if (query.docs.isNotEmpty) {
-      return OrderModel.fromFirestore(query.docs.first);
+      final doc = query.docs.first;
+      return OrderModel.fromJson(doc.data()).copyWith(id: doc.id);
     }
     return null;
   }
@@ -109,7 +105,8 @@ class OrderService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => OrderModel.fromFirestore(doc))
+              .map(
+                  (doc) => OrderModel.fromJson(doc.data()).copyWith(id: doc.id))
               .toList(),
         );
   }
@@ -126,7 +123,8 @@ class OrderService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => OrderModel.fromFirestore(doc))
+              .map(
+                  (doc) => OrderModel.fromJson(doc.data()).copyWith(id: doc.id))
               .toList(),
         );
   }
@@ -150,9 +148,12 @@ class OrderService {
 
     await _db.runTransaction((transaction) async {
       final orderSnapshot = await transaction.get(orderRef);
-      if (!orderSnapshot.exists) throw Exception("Order does not exist!");
+      if (!orderSnapshot.exists || orderSnapshot.data() == null) {
+        throw Exception("Order does not exist!");
+      }
 
-      final order = OrderModel.fromFirestore(orderSnapshot);
+      final order = OrderModel.fromJson(orderSnapshot.data()!)
+          .copyWith(id: orderSnapshot.id);
       final itemToUpdate = order.items.firstWhere((item) => item.id == itemId);
 
       MenuModel? menu;
@@ -160,33 +161,33 @@ class OrderService {
 
       if (newStatus == OrderItemStatus.preparing &&
           itemToUpdate.status == OrderItemStatus.pending) {
-        final menuRef = _db
-            .collection(_menusCollectionPath)
-            .doc(itemToUpdate.menuId);
+        final menuRef =
+            _db.collection(_menusCollectionPath).doc(itemToUpdate.menuId);
         final menuSnapshot = await transaction.get(menuRef);
-        if (!menuSnapshot.exists) throw Exception("Menu item does not exist!");
-
-        menu = MenuModel.fromFirestore(menuSnapshot);
+        if (!menuSnapshot.exists || menuSnapshot.data() == null) {
+          throw Exception("Menu item does not exist!");
+        }
+        menu = MenuModel.fromJson(menuSnapshot.data()!)
+            .copyWith(id: menuSnapshot.id);
 
         for (final inventoryId in menu.inventoryItems) {
-          final inventoryRef = _db
-              .collection(_inventoriesCollectionPath)
-              .doc(inventoryId);
+          final inventoryRef =
+              _db.collection(_inventoriesCollectionPath).doc(inventoryId);
           inventorySnapshots.add(await transaction.get(inventoryRef));
         }
-      }
 
-      if (newStatus == OrderItemStatus.preparing &&
-          itemToUpdate.status == OrderItemStatus.pending) {
         for (final inventorySnapshot in inventorySnapshots) {
-          if (!inventorySnapshot.exists) continue;
+          if (!inventorySnapshot.exists || inventorySnapshot.data() == null) {
+            continue;
+          }
 
-          final inventoryItem = InventoryItem.fromFirestore(inventorySnapshot);
+          final inventoryItem = InventoryItem.fromJson(
+                  inventorySnapshot.data()! as Map<String, dynamic>)
+              .copyWith(id: inventorySnapshot.id);
           final newQuantity = inventoryItem.quantityInStock - 1;
 
-          transaction.update(inventorySnapshot.reference, {
-            'quantityInStock': newQuantity,
-          });
+          transaction.update(
+              inventorySnapshot.reference, {'quantityInStock': newQuantity});
 
           movementsToLog.add(
             StockMovementModel(
@@ -197,7 +198,7 @@ class OrderService {
               type: StockMovementType.sale,
               quantityBefore: inventoryItem.quantityInStock,
               quantityAfter: newQuantity,
-              reason: 'Order: ${order.tableName} - Item: ${menu!.name}',
+              reason: 'Order: ${order.tableName} - Item: ${menu.name}',
               createdAt: Timestamp.now(),
               restaurantId: order.restaurantId,
             ),
@@ -212,22 +213,18 @@ class OrderService {
         return item;
       }).toList();
 
-      final allItemsServed = updatedItems.every(
-        (item) => item.status == OrderItemStatus.served,
-      );
-
+      final allItemsServed =
+          updatedItems.every((item) => item.status == OrderItemStatus.served);
       OrderStatus newOverallStatus = order.status;
+
       if (allItemsServed) {
         newOverallStatus = OrderStatus.completed;
       } else {
-        final allItemsReadyOrServed = updatedItems.every(
-          (item) =>
-              item.status == OrderItemStatus.ready ||
-              item.status == OrderItemStatus.served,
-        );
-        final anyItemPreparing = updatedItems.any(
-          (item) => item.status == OrderItemStatus.preparing,
-        );
+        final allItemsReadyOrServed = updatedItems.every((item) =>
+            item.status == OrderItemStatus.ready ||
+            item.status == OrderItemStatus.served);
+        final anyItemPreparing = updatedItems
+            .any((item) => item.status == OrderItemStatus.preparing);
 
         if (allItemsReadyOrServed) {
           newOverallStatus = OrderStatus.ready;
@@ -267,32 +264,32 @@ class OrderService {
 
     await _db.runTransaction((transaction) async {
       final orderSnapshot = await transaction.get(orderRef);
-      if (!orderSnapshot.exists) throw Exception("Order does not exist!");
+      if (!orderSnapshot.exists || orderSnapshot.data() == null) {
+        throw Exception("Order does not exist!");
+      }
 
-      final order = OrderModel.fromFirestore(orderSnapshot);
+      final order = OrderModel.fromJson(orderSnapshot.data()!)
+          .copyWith(id: orderSnapshot.id);
       final itemToReset = order.items.firstWhere((item) => item.id == itemId);
 
       if (itemToReset.status != OrderItemStatus.pending) {
-        final menuRef = _db
-            .collection(_menusCollectionPath)
-            .doc(itemToReset.menuId);
+        final menuRef =
+            _db.collection(_menusCollectionPath).doc(itemToReset.menuId);
         final menuSnapshot = await transaction.get(menuRef);
-        if (!menuSnapshot.exists) throw Exception("Menu item does not exist!");
-
-        final menu = MenuModel.fromFirestore(menuSnapshot);
-        final List<DocumentSnapshot> inventorySnapshots = [];
-        for (final invId in menu.inventoryItems) {
-          inventorySnapshots.add(
-            await transaction.get(
-              _db.collection(_inventoriesCollectionPath).doc(invId),
-            ),
-          );
+        if (!menuSnapshot.exists || menuSnapshot.data() == null) {
+          throw Exception("Menu item does not exist!");
         }
 
-        for (final invSnapshot in inventorySnapshots) {
-          if (!invSnapshot.exists) continue;
+        final menu = MenuModel.fromJson(menuSnapshot.data()!)
+            .copyWith(id: menuSnapshot.id);
 
-          final inventoryItem = InventoryItem.fromFirestore(invSnapshot);
+        for (final invId in menu.inventoryItems) {
+          final invSnapshot = await transaction
+              .get(_db.collection(_inventoriesCollectionPath).doc(invId));
+          if (!invSnapshot.exists || invSnapshot.data() == null) continue;
+
+          final inventoryItem = InventoryItem.fromJson(invSnapshot.data()!)
+              .copyWith(id: invSnapshot.id);
           final movementReason = 'Reset: ${order.tableName} - ${menu.name}';
 
           if (wasWasted) {
@@ -312,9 +309,8 @@ class OrderService {
             );
           } else {
             final newQuantity = inventoryItem.quantityInStock + 1;
-            transaction.update(invSnapshot.reference, {
-              'quantityInStock': newQuantity,
-            });
+            transaction.update(
+                invSnapshot.reference, {'quantityInStock': newQuantity});
             movementsToLog.add(
               StockMovementModel(
                 id: '',
@@ -340,21 +336,17 @@ class OrderService {
         return item;
       }).toList();
 
-      final allItemsServed = updatedItems.every(
-        (item) => item.status == OrderItemStatus.served,
-      );
+      final allItemsServed =
+          updatedItems.every((item) => item.status == OrderItemStatus.served);
       OrderStatus newOverallStatus;
       if (allItemsServed) {
         newOverallStatus = OrderStatus.completed;
       } else {
-        final allItemsReadyOrServed = updatedItems.every(
-          (item) =>
-              item.status == OrderItemStatus.ready ||
-              item.status == OrderItemStatus.served,
-        );
-        final anyItemPreparing = updatedItems.any(
-          (item) => item.status == OrderItemStatus.preparing,
-        );
+        final allItemsReadyOrServed = updatedItems.every((item) =>
+            item.status == OrderItemStatus.ready ||
+            item.status == OrderItemStatus.served);
+        final anyItemPreparing = updatedItems
+            .any((item) => item.status == OrderItemStatus.preparing);
         if (allItemsReadyOrServed) {
           newOverallStatus = OrderStatus.ready;
         } else if (anyItemPreparing) {

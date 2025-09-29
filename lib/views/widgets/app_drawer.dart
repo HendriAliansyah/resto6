@@ -1,9 +1,10 @@
 // lib/views/widgets/app_drawer.dart
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:resto2/models/role_permission_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
+import 'package:resto2/models/role_permission_model.dart';
 import 'package:resto2/providers/restaurant_provider.dart';
 import 'package:resto2/utils/constants.dart';
 
@@ -13,7 +14,6 @@ class AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider).asData?.value;
-    final authController = ref.read(authControllerProvider.notifier);
     final restaurant = ref.watch(restaurantStreamProvider).asData?.value;
 
     if (currentUser == null) {
@@ -22,7 +22,6 @@ class AppDrawer extends ConsumerWidget {
 
     final userRole = currentUser.role;
 
-    // Helper function to check permissions
     bool canAccess(PagePermission permission) {
       return userRole != null
           ? rolePermissions[userRole]?.contains(permission) ?? false
@@ -36,7 +35,6 @@ class AppDrawer extends ConsumerWidget {
       return null;
     }
 
-    // Helper to create a navigation list tile
     Widget buildTile(
       BuildContext context,
       String title,
@@ -53,7 +51,6 @@ class AppDrawer extends ConsumerWidget {
       );
     }
 
-    // Custom header widget that replaces UserAccountsDrawerHeader
     Widget buildDrawerHeader() {
       return Container(
         width: double.infinity,
@@ -78,16 +75,16 @@ class AppDrawer extends ConsumerWidget {
             Text(
               currentUser.displayName ?? UIStrings.defaultUserName,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onPrimary,
-                fontWeight: FontWeight.bold,
-              ),
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 4),
             Text(
               currentUser.email,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onPrimary,
-              ),
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
             ),
           ],
         ),
@@ -99,14 +96,13 @@ class AppDrawer extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            buildDrawerHeader(), // Using the new custom header
+            buildDrawerHeader(),
             buildTile(
               context,
               UIStrings.home,
               Icons.home_outlined,
               AppRoutes.home,
             ),
-            // --- Operations Group ---
             const Divider(),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -136,8 +132,6 @@ class AppDrawer extends ConsumerWidget {
                 Icons.summarize_outlined,
                 AppRoutes.orderSummary,
               ),
-
-            // --- Management Group (Collapsible) ---
             const Divider(),
             ExpansionTile(
               shape: const Border(),
@@ -206,8 +200,6 @@ class AppDrawer extends ConsumerWidget {
                   ),
               ],
             ),
-
-            // --- Inventory Group (Collapsible) ---
             const Divider(),
             ExpansionTile(
               shape: const Border(),
@@ -255,8 +247,6 @@ class AppDrawer extends ConsumerWidget {
                   ),
               ],
             ),
-
-            // --- App Settings & Logout ---
             const Divider(),
             buildTile(
               context,
@@ -269,7 +259,7 @@ class AppDrawer extends ConsumerWidget {
               title: const Text(UIStrings.logoutTitle),
               onTap: () {
                 Navigator.pop(context);
-                authController.signOut();
+                ref.read(authControllerProvider.notifier).signOut();
               },
             ),
           ],

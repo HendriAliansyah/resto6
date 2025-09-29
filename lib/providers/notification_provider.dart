@@ -1,46 +1,55 @@
 // lib/providers/notification_provider.dart
 
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter/foundation.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:resto2/models/notification_model.dart';
+import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/services/fcm_service.dart';
-import 'package:resto2/services/local_notification_service.dart'; // Import the new service
-import '../controllers/notification_controller.dart';
-import '../models/notification_model.dart';
-import '../services/notification_service.dart';
-import 'auth_providers.dart';
+import 'package:resto2/services/local_notification_service.dart';
+import 'package:resto2/services/notification_service.dart';
 
-// Provides an instance of NotificationService
-final notificationServiceProvider = Provider<NotificationService>((ref) {
-  return NotificationService();
-});
+part 'notification_provider.g.dart';
 
-// Provides the stream of notifications for the currently logged-in user
-final notificationsStreamProvider =
-    StreamProvider.autoDispose<List<NotificationModel>>((ref) {
-      final authState = ref.watch(authStateChangeProvider);
-      final notificationService = ref.watch(notificationServiceProvider);
+@riverpod
+NotificationService notificationService(Ref ref) => NotificationService();
 
-      if (authState.asData?.value?.uid != null) {
-        return notificationService.getNotificationsStream(
-          authState.asData!.value!.uid,
-        );
-      }
+@riverpod
+Stream<List<NotificationModel>> notificationsStream(Ref ref) {
+  final userId = ref.watch(currentUserProvider).asData?.value?.uid;
+  if (userId != null) {
+    return ref
+        .watch(notificationServiceProvider)
+        .getNotificationsStream(userId);
+  }
+  return Stream.value([]);
+}
 
-      return Stream.value([]); // Return an empty stream if no user is logged in
-    });
+@riverpod
+FcmService fcmService(Ref ref) => FcmService(ref);
 
-// Provides the notification controller
-final notificationControllerProvider = Provider((ref) {
+@riverpod
+LocalNotificationService localNotificationService(Ref ref) =>
+    LocalNotificationService();
+
+@riverpod
+NotificationController notificationController(Ref ref) {
   return NotificationController(ref);
-});
+}
 
-// Add this provider for the FCM service
-final fcmServiceProvider = Provider<FcmService>((ref) {
-  return FcmService(ref);
-});
+class NotificationController {
+  final Ref _ref;
+  NotificationController(this._ref);
 
-// Add this provider for the Local Notification service
-final localNotificationServiceProvider = Provider<LocalNotificationService>((
-  ref,
-) {
-  return LocalNotificationService();
-});
+  Future<void> markNotificationAsRead(String notificationId) async {
+    final user = _ref.read(currentUserProvider).asData?.value;
+    if (user == null) return;
+
+    try {
+      await _ref
+          .read(notificationServiceProvider)
+          .markNotificationAsRead(user.uid, notificationId);
+    } catch (e) {
+      debugPrint("Error marking notification as read: $e");
+    }
+  }
+}

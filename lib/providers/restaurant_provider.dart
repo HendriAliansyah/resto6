@@ -1,77 +1,113 @@
 // lib/providers/restaurant_provider.dart
 
-import 'dart:async';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:resto2/controllers/restaurant_controller.dart';
-import '../models/restaurant_model.dart';
-import '../services/restaurant_service.dart';
-import 'auth_providers.dart';
+import 'dart:io';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:resto2/models/restaurant_model.dart';
+import 'package:resto2/providers/auth_providers.dart';
+import 'package:resto2/providers/storage_provider.dart';
+import 'package:resto2/services/restaurant_service.dart';
 
-final restaurantServiceProvider = Provider<RestaurantService>((ref) {
+part 'restaurant_provider.g.dart';
+
+@riverpod
+RestaurantService restaurantService(Ref ref) {
   return RestaurantService();
-});
-
-// **START OF THE NEW SOLUTION**
-
-// We replace the old StreamProvider with a StateNotifierProvider.
-// This gives us an actual class where we can manage the stream's lifecycle.
-final restaurantStreamProvider =
-    StateNotifierProvider<
-      RestaurantStreamController,
-      AsyncValue<RestaurantModel?>
-    >((ref) => RestaurantStreamController(ref));
-
-class RestaurantStreamController
-    extends StateNotifier<AsyncValue<RestaurantModel?>> {
-  final Ref _ref;
-  StreamSubscription? _subscription;
-
-  RestaurantStreamController(this._ref) : super(const AsyncLoading()) {
-    // Listen for changes to the simple restaurantId provider.
-    _ref.listen<String?>(
-      userRestaurantIdProvider,
-      (previousId, newId) {
-        // When the ID changes (login, logout, new restaurant created):
-        // 1. Cancel any existing Firestore listener. This is the crucial step.
-        _subscription?.cancel();
-
-        // 2. If the new ID is null (user logged out), set state to null and stop.
-        if (newId == null) {
-          state = const AsyncData(null);
-          return;
-        }
-
-        // 3. If there is a new, valid ID, create a new Firestore subscription.
-        _subscription = _ref
-            .read(restaurantServiceProvider)
-            .getRestaurantStream(newId)
-            .listen(
-              (restaurant) {
-                // When new data arrives, update the state.
-                state = AsyncData(restaurant);
-              },
-              onError: (error, stackTrace) {
-                // If the stream has an error, update the state.
-                state = AsyncError(error, stackTrace);
-              },
-            );
-      },
-      // This ensures the listener fires immediately with the current value.
-      fireImmediately: true,
-    );
-  }
-
-  // It's good practice to cancel the subscription when the provider is disposed.
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
-  }
 }
 
-// **END OF THE NEW SOLUTION**
+@riverpod
+Stream<RestaurantModel?> restaurantStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
+  if (restaurantId == null) {
+    return Stream.value(null);
+  }
+  return ref.watch(restaurantServiceProvider).getRestaurantStream(restaurantId);
+}
 
-final restaurantControllerProvider =
-    StateNotifierProvider.autoDispose<RestaurantController, bool>((ref) {
-      return RestaurantController(ref);
-    });
+@riverpod
+FirebaseFunctions functions(Ref ref) => FirebaseFunctions.instance;
+
+@riverpod
+class RestaurantController extends _$RestaurantController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    state = const AsyncLoading();
+    try {
+      await action();
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
+    } catch (e, st) {
+      if (ref.mounted) {
+        state = AsyncError(e, st);
+      }
+    }
+  }
+
+  Future<void> saveDetails({
+    required String name,
+    required String address,
+    required String phone,
+    File? newLogoFile,
+    String? existingLogoUrl,
+  }) =>
+      _run(() async {
+        final user = ref.read(currentUserProvider).asData?.value;
+        final existingRestaurant =
+            ref.read(restaurantStreamProvider).asData?.value;
+
+        if (user?.restaurantId == null || existingRestaurant == null) {
+          throw Exception('User or restaurant not found.');
+        }
+
+        final restaurantId = user!.restaurantId!;
+        String? finalLogoUrl = existingLogoUrl;
+        String? newLogoPath;
+
+        try {
+          final storageService = ref.read(storageServiceProvider);
+          if (newLogoFile != null) {
+            newLogoPath = 'logos/$restaurantId/logo.jpg';
+            finalLogoUrl =
+                await storageService.uploadImage(newLogoPath, newLogoFile);
+          }
+
+          final restaurant = RestaurantModel(
+            id: restaurantId,
+            ownerId: existingRestaurant.ownerId,
+            name: name,
+            address: address,
+            phone: phone,
+            logoUrl: finalLogoUrl,
+          );
+
+          await ref
+              .read(restaurantServiceProvider)
+              .saveRestaurantDetails(restaurant);
+        } catch (e) {
+          if (newLogoPath != null) {
+            await ref.read(storageServiceProvider).deleteImage(newLogoPath);
+          }
+          rethrow;
+        }
+      });
+
+  Future<void> requestToJoinRestaurant({required String restaurantId}) =>
+      _run(() async {
+        try {
+          final callable = ref
+              .read(functionsProvider)
+              .httpsCallable('requestToJoinRestaurant');
+          await callable.call({'restaurantId': restaurantId});
+        } on FirebaseFunctionsException {
+          rethrow;
+        } catch (e) {
+          throw Exception(
+              'An unknown error occurred while sending the request.');
+        }
+      });
+}

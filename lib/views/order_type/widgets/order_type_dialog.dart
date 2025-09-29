@@ -1,4 +1,5 @@
 // lib/views/order_type/widgets/order_type_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -21,27 +22,23 @@ class OrderTypeDialog extends HookConsumerWidget {
     final accessibility = useState(
       orderType?.accessibility ?? OrderTypeAccessibility.all,
     );
-    final isLoading =
-        ref.watch(orderTypeControllerProvider).status ==
-        OrderTypeActionStatus.loading;
+    final isLoading = ref.watch(orderTypeControllerProvider).isLoading;
 
-    ref.listen<OrderTypeState>(orderTypeControllerProvider, (prev, next) {
-      if (next.status == OrderTypeActionStatus.success) {
-        showSnackBar(context, UIMessages.orderTypeSaved);
-        if (isEditing) {
-          if (context.mounted) Navigator.of(context).pop();
-        } else {
-          nameController.clear();
-          accessibility.value = OrderTypeAccessibility.all;
-        }
-      }
-      if (next.status == OrderTypeActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(orderTypeControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          showSnackBar(context, UIMessages.orderTypeSaved);
+          if (isEditing) {
+            if (context.mounted) Navigator.of(context).pop();
+          } else {
+            nameController.clear();
+            accessibility.value = OrderTypeAccessibility.all;
+          }
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void submit() {

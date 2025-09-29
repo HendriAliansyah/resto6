@@ -1,4 +1,5 @@
 // lib/views/restaurant/charges_and_taxes_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/models/charge_tax_rule_model.dart';
@@ -28,9 +29,8 @@ class ChargesAndTaxesPage extends ConsumerWidget {
       drawer: const AppDrawer(),
       body: rulesAsync.when(
         data: (rules) {
-          final serviceCharges = rules
-              .where((r) => r.ruleType == RuleType.serviceCharge)
-              .toList();
+          final serviceCharges =
+              rules.where((r) => r.ruleType == RuleType.serviceCharge).toList();
           final taxes = rules.where((r) => r.ruleType == RuleType.tax).toList();
 
           return ListView(
@@ -125,7 +125,7 @@ class _RuleSection extends StatelessWidget {
       case ConditionType.between:
         conditionString = UIStrings.subtotalConditionBetween
             .replaceFirst('{from}', rule.conditionValue1.toString())
-            .replaceFirst('{to}', rule.conditionValue2.toString());
+            .replaceFirst('{to}', (rule.conditionValue2 ?? '...').toString());
         break;
       case ConditionType.lessThan:
         conditionString = UIStrings.subtotalConditionLessThan.replaceFirst(

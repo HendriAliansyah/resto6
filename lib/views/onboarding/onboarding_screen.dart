@@ -1,4 +1,5 @@
 // lib/views/onboarding/onboarding_screen.dart
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,44 +18,35 @@ class OnboardingScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUserAsync = ref.watch(currentUserProvider);
-    final authController = ref.read(authControllerProvider.notifier);
-
     final restaurantIdController = useTextEditingController();
     final formKey = useMemoized(() => GlobalKey<FormState>());
-    final isRequestLoading = useState(false);
+    final restaurantRequestState = ref.watch(restaurantControllerProvider);
 
-    void handleSendRequest() async {
-      if (formKey.currentState?.validate() ?? false) {
-        isRequestLoading.value = true;
-        try {
-          // Call the new, simpler controller method.
-          await ref
-              .read(restaurantControllerProvider.notifier)
-              .requestToJoinRestaurant(
-                restaurantId: restaurantIdController.text.trim(),
-              );
-
+    ref.listen<AsyncValue<void>>(restaurantControllerProvider, (_, state) {
+      state.whenOrNull(
+        data: (_) {
           if (context.mounted) {
             showSnackBar(context, UIMessages.requestSentSuccessfully);
             restaurantIdController.clear();
           }
-        } catch (e) {
+        },
+        error: (e, __) {
           if (!context.mounted) return;
-
-          // **THE FIX IS HERE:**
-          // We now check the 'details' field of the exception. This is reliable.
           if (e is FirebaseFunctionsException &&
               e.details?['reason'] == 'RESTAURANT_NOT_FOUND') {
             showSnackBar(context, UIMessages.restaurantNotFound, isError: true);
           } else {
-            // Show a generic message for all other errors.
             showSnackBar(context, UIMessages.unexpectedError, isError: true);
           }
-        } finally {
-          if (context.mounted) {
-            isRequestLoading.value = false;
-          }
-        }
+        },
+      );
+    });
+
+    void handleSendRequest() {
+      if (formKey.currentState?.validate() ?? false) {
+        ref.read(restaurantControllerProvider.notifier).requestToJoinRestaurant(
+              restaurantId: restaurantIdController.text.trim(),
+            );
       }
     }
 
@@ -64,14 +56,14 @@ class OnboardingScreen extends HookConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => authController.signOut(),
+            onPressed: () =>
+                ref.read(authControllerProvider.notifier).signOut(),
           ),
         ],
       ),
       body: SafeArea(
         child: GestureDetector(
           onTap: () {
-            // Dismiss the keyboard when the user taps on an empty space
             FocusScope.of(context).unfocus();
           },
           child: currentUserAsync.when(
@@ -125,7 +117,7 @@ class OnboardingScreen extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (isRequestLoading.value)
+                      if (restaurantRequestState.isLoading)
                         const LoadingIndicator()
                       else
                         ElevatedButton(

@@ -1,14 +1,14 @@
+// lib/services/firestore_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:resto2/models/role_permission_model.dart';
 import 'package:resto2/models/user_settings_model.dart';
 import '../models/user_model.dart';
-import '../utils/constants.dart'; // Import the constants file
+import '../utils/constants.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
   FirestoreService(this._db);
 
-  // Add a new user to the database
   Future<void> addUser(AppUser user) async {
     await _db
         .collection(DBConstants.usersCollection)
@@ -16,11 +16,10 @@ class FirestoreService {
         .set(user.toJson());
   }
 
-  // Get a real-time stream of a user's data
   Stream<AppUser?> watchUser(String uid) {
     return _db.collection(DBConstants.usersCollection).doc(uid).snapshots().map(
       (snapshot) {
-        if (snapshot.exists) {
+        if (snapshot.exists && snapshot.data() != null) {
           return AppUser.fromJson(snapshot.data()!);
         }
         return null;
@@ -28,7 +27,6 @@ class FirestoreService {
     );
   }
 
-  // New method to update a user's restaurant and role
   Future<void> updateUserRestaurantAndRole({
     required String uid,
     required String restaurantId,
@@ -44,18 +42,20 @@ class FirestoreService {
     required String uid,
     required bool isDisabled,
   }) async {
-    await _db.collection(DBConstants.usersCollection).doc(uid).update({
-      'isDisabled': isDisabled,
-    });
+    await _db
+        .collection(DBConstants.usersCollection)
+        .doc(uid)
+        .update({'isDisabled': isDisabled});
   }
 
   Future<void> updateUserRole({
     required String uid,
     required UserRole role,
   }) async {
-    await _db.collection(DBConstants.usersCollection).doc(uid).update({
-      'role': role.name,
-    });
+    await _db
+        .collection(DBConstants.usersCollection)
+        .doc(uid)
+        .update({'role': role.name});
   }
 
   Stream<UserSettings> watchUserSettings(String uid) {
@@ -65,10 +65,9 @@ class FirestoreService {
         .collection('settings')
         .doc('preferences')
         .snapshots()
-        .map((snapshot) => UserSettings.fromFirestore(snapshot.data()));
+        .map((snapshot) => UserSettings.fromJson(snapshot.data() ?? {}));
   }
 
-  // New method to update the user's theme in the sub-collection
   Future<void> updateUserTheme(String uid, String themeMode) async {
     await _db
         .collection(DBConstants.usersCollection)
@@ -82,18 +81,19 @@ class FirestoreService {
     required String uid,
     required String? token,
   }) async {
-    await _db.collection(DBConstants.usersCollection).doc(uid).update({
-      'fcmToken': token,
-    });
+    await _db
+        .collection(DBConstants.usersCollection)
+        .doc(uid)
+        .update({'fcmToken': token});
   }
 
-  // Add this method to update the session token
   Future<void> updateUserSessionToken({
     required String uid,
     required String? token,
   }) async {
-    await _db.collection(DBConstants.usersCollection).doc(uid).update({
-      'sessionToken': token,
-    });
+    await _db
+        .collection(DBConstants.usersCollection)
+        .doc(uid)
+        .update({'sessionToken': token});
   }
 }

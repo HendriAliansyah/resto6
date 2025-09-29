@@ -1,103 +1,59 @@
-// lib/providers/charge_tax_rule_provider.dart
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/charge_tax_rule_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/providers/restaurant_provider.dart';
 
-enum ChargeTaxRuleActionStatus { initial, loading, success, error }
+part 'charge_tax_rule_provider.g.dart';
 
-class ChargeTaxRuleState {
-  final ChargeTaxRuleActionStatus status;
-  final String? errorMessage;
-
-  ChargeTaxRuleState({
-    this.status = ChargeTaxRuleActionStatus.initial,
-    this.errorMessage,
-  });
+@riverpod
+Stream<List<ChargeTaxRuleModel>> chargeTaxRulesStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
+  if (restaurantId == null) {
+    return Stream.value([]);
+  }
+  return ref
+      .watch(restaurantServiceProvider)
+      .getChargeTaxRulesStream(restaurantId);
 }
 
-// Provider to get a stream of all rules for the current restaurant
-final chargeTaxRulesStreamProvider =
-    StreamProvider.autoDispose<List<ChargeTaxRuleModel>>((ref) {
-      final restaurantId = ref
-          .watch(currentUserProvider)
-          .asData
-          ?.value
-          ?.restaurantId;
-      if (restaurantId == null) {
-        return Stream.value([]);
+@riverpod
+class ChargeTaxRuleController extends _$ChargeTaxRuleController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    state = const AsyncLoading();
+    try {
+      await action();
+      if (ref.mounted) {
+        state = const AsyncData(null);
       }
-      return ref
-          .watch(restaurantServiceProvider)
-          .getChargeTaxRulesStream(restaurantId);
-    });
-
-// Provider for the controller that manages rule actions (add, update, delete)
-final chargeTaxRuleControllerProvider =
-    StateNotifierProvider.autoDispose<
-      ChargeTaxRuleController,
-      ChargeTaxRuleState
-    >((ref) {
-      return ChargeTaxRuleController(ref);
-    });
-
-class ChargeTaxRuleController extends StateNotifier<ChargeTaxRuleState> {
-  final Ref _ref;
-  ChargeTaxRuleController(this._ref) : super(ChargeTaxRuleState());
-
-  Future<void> saveRule(ChargeTaxRuleModel rule) async {
-    state = ChargeTaxRuleState(status: ChargeTaxRuleActionStatus.loading);
-    final restaurantId = _ref
-        .read(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
-    if (restaurantId == null) {
-      state = ChargeTaxRuleState(
-        status: ChargeTaxRuleActionStatus.error,
-        errorMessage: 'User is not in a restaurant.',
-      );
-      return;
-    }
-
-    try {
-      await _ref
-          .read(restaurantServiceProvider)
-          .saveChargeTaxRule(restaurantId, rule);
-      state = ChargeTaxRuleState(status: ChargeTaxRuleActionStatus.success);
-    } catch (e) {
-      state = ChargeTaxRuleState(
-        status: ChargeTaxRuleActionStatus.error,
-        errorMessage: e.toString(),
-      );
+    } catch (e, st) {
+      if (ref.mounted) {
+        state = AsyncError(e, st);
+      }
     }
   }
 
-  Future<void> deleteRule(String ruleId) async {
-    state = ChargeTaxRuleState(status: ChargeTaxRuleActionStatus.loading);
-    final restaurantId = _ref
-        .read(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
-    if (restaurantId == null) {
-      state = ChargeTaxRuleState(
-        status: ChargeTaxRuleActionStatus.error,
-        errorMessage: 'User is not in a restaurant.',
-      );
-      return;
-    }
+  Future<void> saveRule(ChargeTaxRuleModel rule) => _run(() async {
+        final restaurantId = ref.read(userRestaurantIdProvider);
+        if (restaurantId == null) {
+          throw Exception('User is not in a restaurant.');
+        }
+        await ref
+            .read(restaurantServiceProvider)
+            .saveChargeTaxRule(restaurantId, rule);
+      });
 
-    try {
-      await _ref
-          .read(restaurantServiceProvider)
-          .deleteChargeTaxRule(restaurantId, ruleId);
-      state = ChargeTaxRuleState(status: ChargeTaxRuleActionStatus.success);
-    } catch (e) {
-      state = ChargeTaxRuleState(
-        status: ChargeTaxRuleActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
-  }
+  Future<void> deleteRule(String ruleId) => _run(() async {
+        final restaurantId = ref.read(userRestaurantIdProvider);
+        if (restaurantId == null) {
+          throw Exception('User is not in a restaurant.');
+        }
+        await ref
+            .read(restaurantServiceProvider)
+            .deleteChargeTaxRule(restaurantId, ruleId);
+      });
 }

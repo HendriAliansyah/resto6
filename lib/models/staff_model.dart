@@ -1,33 +1,20 @@
+// lib/models/staff_model.dart
+
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:resto2/models/role_permission_model.dart';
 
-class Staff {
-  final String uid;
-  final String email;
-  final String displayName;
-  final UserRole role;
-  final bool isDisabled;
+part 'staff_model.freezed.dart';
+part 'staff_model.g.dart';
 
-  Staff({
-    required this.uid,
-    required this.email,
-    required this.displayName,
-    required this.role,
-    this.isDisabled = false,
-  });
+@freezed
+abstract class Staff with _$Staff {
+  const factory Staff({
+    required String uid,
+    required String email,
+    required String displayName,
+    required UserRole role,
+    @Default(false) bool isDisabled,
+  }) = _Staff;
 
-  // THE FIX IS HERE: Add the fromJson factory constructor.
-  factory Staff.fromJson(Map<String, dynamic> json) {
-    return Staff(
-      uid: json['uid'] ?? '',
-      email: json['email'] ?? '',
-      displayName: json['displayName'] ?? 'No Name',
-      role: UserRole.values.firstWhere(
-        (e) => e.name == json['role'],
-        orElse:
-            () =>
-                UserRole.cashier, // Default to cashier if role is invalid/null
-      ),
-      isDisabled: json['isDisabled'] ?? false,
-    );
-  }
+  factory Staff.fromJson(Map<String, dynamic> json) => _$StaffFromJson(json);
 }

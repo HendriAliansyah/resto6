@@ -1,4 +1,5 @@
 // lib/views/menu/widgets/menu_bottom_sheet.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,21 +26,17 @@ class MenuBottomSheet extends HookConsumerWidget {
     final isEditing = menu != null;
     final nameController = useTextEditingController(text: menu?.name);
     final descController = useTextEditingController(text: menu?.description);
-    final priceController = useTextEditingController(
-      text: menu?.price.toString(),
-    );
-    final preparationTimeController = useTextEditingController(
-      text: menu?.preparationTime.toString(),
-    );
-    final itemTaxController = useTextEditingController(
-      text: menu?.itemTaxPercentage.toString(),
-    );
+    final priceController =
+        useTextEditingController(text: menu?.price.toString());
+    final preparationTimeController =
+        useTextEditingController(text: menu?.preparationTime.toString());
+    final itemTaxController =
+        useTextEditingController(text: menu?.itemTaxPercentage.toString());
     final isTaxFixed = useState(menu?.isTaxFixed ?? false);
     final selectedCourseId = useState<String?>(menu?.courseId);
     final selectedOrderTypeId = useState<String?>(menu?.orderTypeId);
-    final selectedInventoryItems = useState<List<String>>(
-      menu?.inventoryItems ?? [],
-    );
+    final selectedInventoryItems =
+        useState<List<String>>(menu?.inventoryItems ?? []);
     final localImageFile = useState<File?>(null);
     final formKey = useMemoized(() => GlobalKey<FormState>());
 
@@ -47,20 +44,18 @@ class MenuBottomSheet extends HookConsumerWidget {
     final orderTypes = ref.watch(orderTypesStreamProvider).asData?.value ?? [];
     final inventories = ref.watch(inventoryStreamProvider).asData?.value ?? [];
     final menuState = ref.watch(menuControllerProvider);
-    final isLoading = menuState.status == MenuActionStatus.loading;
+    final isLoading = menuState.isLoading;
 
-    ref.listen<MenuState>(menuControllerProvider, (prev, next) {
-      if (next.status == MenuActionStatus.success) {
-        if (context.mounted) Navigator.of(context).pop();
-        showSnackBar(context, UIMessages.menuSaved);
-      }
-      if (next.status == MenuActionStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(menuControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (context.mounted) Navigator.of(context).pop();
+          showSnackBar(context, UIMessages.menuSaved);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void pickImage() async {
@@ -78,11 +73,8 @@ class MenuBottomSheet extends HookConsumerWidget {
         formKey.currentState!.save();
         if (selectedCourseId.value == null ||
             selectedOrderTypeId.value == null) {
-          showSnackBar(
-            context,
-            UIMessages.selectCourseAndOrderType,
-            isError: true,
-          );
+          showSnackBar(context, UIMessages.selectCourseAndOrderType,
+              isError: true);
           return;
         }
         final controller = ref.read(menuControllerProvider.notifier);
@@ -128,9 +120,8 @@ class MenuBottomSheet extends HookConsumerWidget {
         FocusScope.of(context).unfocus();
       },
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -166,27 +157,24 @@ class MenuBottomSheet extends HookConsumerWidget {
                                       image: FileImage(localImageFile.value!),
                                       fit: BoxFit.cover,
                                     )
-                                  : (menu?.imageUrl != null
-                                        ? DecorationImage(
-                                            image: NetworkImage(
-                                              menu!.imageUrl!,
-                                            ),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null),
+                                  : (menu?.imageUrl != null &&
+                                          menu!.imageUrl!.isNotEmpty
+                                      ? DecorationImage(
+                                          image: NetworkImage(menu!.imageUrl!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null),
                             ),
-                            child:
-                                localImageFile.value == null &&
-                                    menu?.imageUrl == null
+                            child: localImageFile.value == null &&
+                                    (menu?.imageUrl == null ||
+                                        menu!.imageUrl!.isEmpty)
                                 ? const Center(
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Icon(
-                                          Icons.add_a_photo_outlined,
-                                          size: 48,
-                                        ),
+                                        Icon(Icons.add_a_photo_outlined,
+                                            size: 48),
                                         SizedBox(height: 8),
                                         Text(UIStrings.tapToAddImage),
                                       ],
@@ -199,9 +187,8 @@ class MenuBottomSheet extends HookConsumerWidget {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: UIStrings.name,
-                        ),
+                        decoration:
+                            const InputDecoration(labelText: UIStrings.name),
                         validator: (v) =>
                             v!.isEmpty ? UIStrings.requiredField : null,
                       ),
@@ -209,8 +196,7 @@ class MenuBottomSheet extends HookConsumerWidget {
                       TextFormField(
                         controller: descController,
                         decoration: const InputDecoration(
-                          labelText: UIStrings.description,
-                        ),
+                            labelText: UIStrings.description),
                         maxLines: 3,
                         validator: (v) =>
                             v!.isEmpty ? UIStrings.requiredField : null,
@@ -242,7 +228,7 @@ class MenuBottomSheet extends HookConsumerWidget {
                         ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          FilteringTextInputFormatter.digitsOnly
                         ],
                         validator: (v) =>
                             v!.isEmpty ? UIStrings.requiredField : null,
@@ -275,12 +261,10 @@ class MenuBottomSheet extends HookConsumerWidget {
                       DropdownButtonFormField2<String>(
                         value: selectedCourseId.value,
                         items: courses
-                            .map(
-                              (c) => DropdownMenuItem(
-                                value: c.id,
-                                child: Text(c.name),
-                              ),
-                            )
+                            .map((c) => DropdownMenuItem(
+                                  value: c.id,
+                                  child: Text(c.name),
+                                ))
                             .toList(),
                         onChanged: (v) => selectedCourseId.value = v,
                         decoration: const InputDecoration(
@@ -294,12 +278,10 @@ class MenuBottomSheet extends HookConsumerWidget {
                       DropdownButtonFormField2<String>(
                         value: selectedOrderTypeId.value,
                         items: orderTypes
-                            .map(
-                              (ot) => DropdownMenuItem(
-                                value: ot.id,
-                                child: Text(ot.name),
-                              ),
-                            )
+                            .map((ot) => DropdownMenuItem(
+                                  value: ot.id,
+                                  child: Text(ot.name),
+                                ))
                             .toList(),
                         onChanged: (v) => selectedOrderTypeId.value = v,
                         decoration: const InputDecoration(
@@ -312,10 +294,8 @@ class MenuBottomSheet extends HookConsumerWidget {
                       const SizedBox(height: 16),
                       MultiSelectBottomSheetField<InventoryItem>(
                         initialValue: inventories
-                            .where(
-                              (i) =>
-                                  selectedInventoryItems.value.contains(i.id),
-                            )
+                            .where((i) =>
+                                selectedInventoryItems.value.contains(i.id))
                             .toList(),
                         items: inventories,
                         dialogTitle: UIStrings.inventoryItems,

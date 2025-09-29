@@ -1,4 +1,5 @@
 // lib/views/order/widgets/order_confirmation_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/models/charge_tax_rule_model.dart';
@@ -39,9 +40,8 @@ class OrderConfirmationDialog extends ConsumerWidget {
 
     final List<Widget> chargeWidgets = [];
     double totalServiceCharge = 0.0;
-    final serviceChargeRules = rules
-        .where((r) => r.ruleType == RuleType.serviceCharge)
-        .toList();
+    final serviceChargeRules =
+        rules.where((r) => r.ruleType == RuleType.serviceCharge).toList();
     for (var rule in serviceChargeRules) {
       if (_isRuleApplicable(rule, subtotal, orderType.id)) {
         final amount = _calculateRuleAmount(rule, subtotal);
@@ -131,9 +131,8 @@ class OrderConfirmationDialog extends ConsumerWidget {
                       const SizedBox(width: 16),
                       Text(
                         '\$${(item.quantity * item.price).toStringAsFixed(2)}',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),

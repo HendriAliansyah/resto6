@@ -1,4 +1,5 @@
 // lib/views/kitchen/widgets/item_countdown_timer.dart
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class ItemCountdownTimer extends HookWidget {
         '${remainingSeconds ~/ 60}:${(remainingSeconds % 60).toString().padLeft(2, '0')}';
 
     return SizedBox(
-      width: 90, // Re-added with a smaller, consistent width
+      width: 90,
       child: Row(
         children: [
           Expanded(

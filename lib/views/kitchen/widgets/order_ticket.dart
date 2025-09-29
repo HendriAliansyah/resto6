@@ -1,4 +1,5 @@
 // lib/views/kitchen/widgets/order_ticket.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -30,9 +31,8 @@ class OrderTicket extends HookConsumerWidget {
 
     useEffect(() {
       final timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        timeSinceOrder.value = DateTime.now().difference(
-          order.createdAt.toDate(),
-        );
+        timeSinceOrder.value =
+            DateTime.now().difference(order.createdAt.toDate());
       });
       return timer.cancel;
     }, [order.createdAt]);
@@ -70,9 +70,8 @@ class OrderTicket extends HookConsumerWidget {
                         order.tableName.isNotEmpty
                             ? order.tableName
                             : order.orderTypeName,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -117,12 +116,11 @@ class OrderTicket extends HookConsumerWidget {
   ) {
     final theme = Theme.of(context);
     final controller = ref.read(kitchenControllerProvider.notifier);
-    final itemStatus = item.status;
     final itemKey = '${order.orderId}-${item.id}';
     final isProcessing = ref.watch(processingItemsProvider).contains(itemKey);
 
     OrderItemStatus? nextStatus;
-    switch (itemStatus) {
+    switch (item.status) {
       case OrderItemStatus.pending:
         nextStatus = OrderItemStatus.preparing;
         break;
@@ -153,11 +151,11 @@ class OrderTicket extends HookConsumerWidget {
     }
 
     return Material(
-      color: itemStatus == OrderItemStatus.preparing
+      color: item.status == OrderItemStatus.preparing
           ? theme.colorScheme.primaryContainer.withAlpha(77)
-          : (itemStatus == OrderItemStatus.ready
-                ? Colors.green.withAlpha(38)
-                : Colors.transparent),
+          : (item.status == OrderItemStatus.ready
+              ? Colors.green.withAlpha(38)
+              : Colors.transparent),
       child: InkWell(
         onTap: (isProcessing || nextStatus == null)
             ? null
@@ -179,10 +177,10 @@ class OrderTicket extends HookConsumerWidget {
                     Text(
                       '${item.quantity}x ${item.menuName}',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        decoration: itemStatus == OrderItemStatus.served
+                        decoration: item.status == OrderItemStatus.served
                             ? TextDecoration.lineThrough
                             : TextDecoration.none,
-                        color: itemStatus == OrderItemStatus.served
+                        color: item.status == OrderItemStatus.served
                             ? Colors.grey
                             : null,
                       ),
@@ -227,12 +225,12 @@ class OrderTicket extends HookConsumerWidget {
                   },
                   itemBuilder: (BuildContext context) =>
                       <PopupMenuEntry<String>>[
-                        if (itemStatus != OrderItemStatus.pending)
-                          const PopupMenuItem<String>(
-                            value: 'reset',
-                            child: Text(UIStrings.resetStatus),
-                          ),
-                      ],
+                    if (item.status != OrderItemStatus.pending)
+                      const PopupMenuItem<String>(
+                        value: 'reset',
+                        child: Text(UIStrings.resetStatus),
+                      ),
+                  ],
                 ),
             ],
           ),

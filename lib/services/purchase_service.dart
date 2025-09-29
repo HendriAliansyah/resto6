@@ -6,8 +6,8 @@ class PurchaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String _collectionPath = 'purchases';
 
-  Future<DocumentReference> addPurchase(Map<String, dynamic> data) {
-    return _db.collection(_collectionPath).add(data);
+  Future<DocumentReference> addPurchase(PurchaseModel purchase) {
+    return _db.collection(_collectionPath).add(purchase.toJson());
   }
 
   Stream<List<PurchaseModel>> getRestaurantPurchasesStream(
@@ -19,10 +19,10 @@ class PurchaseService {
         .orderBy('purchaseDate', descending: true)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => PurchaseModel.fromFirestore(doc))
-                  .toList(),
+          (snapshot) => snapshot.docs
+              .map((doc) =>
+                  PurchaseModel.fromJson(doc.data()).copyWith(id: doc.id))
+              .toList(),
         );
   }
 }

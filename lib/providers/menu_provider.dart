@@ -1,77 +1,65 @@
 // lib/providers/menu_provider.dart
+
 import 'dart:io';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:resto2/models/menu_model.dart';
 import 'package:resto2/providers/auth_providers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:resto2/providers/menu_filter_provider.dart';
-import 'package:resto2/providers/staff_filter_provider.dart';
 import 'package:resto2/providers/storage_provider.dart';
+import 'package:resto2/services/menu_service.dart';
+import 'package:resto2/providers/staff_filter_provider.dart'; // CORRECTED: Added this import
 
-// Service
-class MenuService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _collectionPath = 'menus';
+part 'menu_provider.g.dart';
 
-  Stream<List<MenuModel>> getMenusStream(String restaurantId) {
-    return _db
-        .collection(_collectionPath)
-        .where('restaurantId', isEqualTo: restaurantId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => MenuModel.fromFirestore(doc)).toList(),
-        );
-  }
+@riverpod
+MenuService menuService(Ref ref) => MenuService();
 
-  Future<DocumentReference> addMenu(Map<String, dynamic> data) async {
-    return await _db.collection(_collectionPath).add(data);
-  }
-
-  Future<void> updateMenu(String id, Map<String, dynamic> data) async {
-    await _db.collection(_collectionPath).doc(id).update(data);
-  }
-
-  Future<void> deleteMenu(String id) async {
-    await _db.collection(_collectionPath).doc(id).delete();
-  }
-}
-
-// State
-enum MenuActionStatus { initial, loading, success, error }
-
-class MenuState {
-  final MenuActionStatus status;
-  final String? errorMessage;
-  MenuState({this.status = MenuActionStatus.initial, this.errorMessage});
-}
-
-// Providers
-final menuServiceProvider = Provider((ref) => MenuService());
-
-final menusStreamProvider = StreamProvider.autoDispose<List<MenuModel>>((ref) {
-  final restaurantId = ref
-      .watch(currentUserProvider)
-      .asData
-      ?.value
-      ?.restaurantId;
+@riverpod
+Stream<List<MenuModel>> menusStream(Ref ref) {
+  final restaurantId = ref.watch(userRestaurantIdProvider);
   if (restaurantId != null) {
     return ref.watch(menuServiceProvider).getMenusStream(restaurantId);
   }
   return Stream.value([]);
-});
+}
 
-final menuControllerProvider =
-    StateNotifierProvider.autoDispose<MenuController, MenuState>((ref) {
-      return MenuController(ref);
+@riverpod
+List<MenuModel> sortedMenus(Ref ref) {
+  final menuList = ref.watch(menusStreamProvider).asData?.value ?? [];
+  final filter = ref.watch(menuFilterProvider);
+
+  final filteredList = menuList.where((menu) {
+    final searchMatch = filter.searchQuery.isEmpty ||
+        menu.name.toLowerCase().contains(filter.searchQuery.toLowerCase());
+    final courseMatch =
+        filter.courseId == null || menu.courseId == filter.courseId;
+    return searchMatch && courseMatch;
+  }).toList();
+
+  return filteredList
+    ..sort((a, b) {
+      int comparison;
+      switch (filter.sortOption) {
+        case MenuSortOption.byName:
+          comparison = a.name.compareTo(b.name);
+          break;
+        case MenuSortOption.byPrice:
+          comparison = a.price.compareTo(b.price);
+          break;
+      }
+      return filter.sortOrder == SortOrder.asc ? comparison : -comparison;
     });
+}
 
-class MenuController extends StateNotifier<MenuState> {
-  final Ref _ref;
-  MenuController(this._ref) : super(MenuState());
+@riverpod
+class MenuController extends _$MenuController {
+  @override
+  FutureOr<void> build() {
+    // No-op
+  }
 
   bool _isNameUnique(String name, String? idToExclude) {
-    final items = _ref.read(menusStreamProvider).asData?.value ?? [];
+    final items = ref.read(menusStreamProvider).asData?.value ?? [];
     return items
         .where(
           (item) =>
@@ -93,27 +81,16 @@ class MenuController extends StateNotifier<MenuState> {
     required bool isTaxFixed,
     File? imageFile,
   }) async {
-    state = MenuState(status: MenuActionStatus.loading);
-    if (!_isNameUnique(name, null)) {
-      state = MenuState(
-        status: MenuActionStatus.error,
-        errorMessage: 'A menu item with this name already exists.',
-      );
-      return;
-    }
-    final restaurantId = _ref
-        .read(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
-    if (restaurantId == null) {
-      state = MenuState(
-        status: MenuActionStatus.error,
-        errorMessage: 'User not in a restaurant.',
-      );
-      return;
-    }
-    try {
+    state = const AsyncLoading();
+    final restaurantId = ref.read(userRestaurantIdProvider);
+    final menuService = ref.read(menuServiceProvider);
+
+    state = await AsyncValue.guard(() async {
+      if (restaurantId == null) throw Exception('User not in a restaurant.');
+      if (!_isNameUnique(name, null)) {
+        throw Exception('A menu item with this name already exists.');
+      }
+
       final newItem = MenuModel(
         id: '',
         name: name,
@@ -128,25 +105,15 @@ class MenuController extends StateNotifier<MenuState> {
         isTaxFixed: isTaxFixed,
       );
 
-      final docRef = await _ref
-          .read(menuServiceProvider)
-          .addMenu(newItem.toJson());
+      final docRef = await menuService.addMenu(newItem);
 
       if (imageFile != null) {
-        final imageUrl = await _ref
+        final imageUrl = await ref
             .read(storageServiceProvider)
             .uploadImage('menus/${docRef.id}/image.jpg', imageFile);
-        await _ref.read(menuServiceProvider).updateMenu(docRef.id, {
-          'imageUrl': imageUrl,
-        });
+        await menuService.updateMenu(docRef.id, {'imageUrl': imageUrl});
       }
-      state = MenuState(status: MenuActionStatus.success);
-    } catch (e) {
-      state = MenuState(
-        status: MenuActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+    });
   }
 
   Future<void> updateMenu({
@@ -163,21 +130,19 @@ class MenuController extends StateNotifier<MenuState> {
     File? imageFile,
     String? existingImageUrl,
   }) async {
-    state = MenuState(status: MenuActionStatus.loading);
-    if (!_isNameUnique(name, id)) {
-      state = MenuState(
-        status: MenuActionStatus.error,
-        errorMessage: 'Another menu item with this name already exists.',
-      );
-      return;
-    }
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (!_isNameUnique(name, id)) {
+        throw Exception('Another menu item with this name already exists.');
+      }
+
       String? finalImageUrl = existingImageUrl;
       if (imageFile != null) {
-        finalImageUrl = await _ref
+        finalImageUrl = await ref
             .read(storageServiceProvider)
             .uploadImage('menus/$id/image.jpg', imageFile);
       }
+
       final updatedData = {
         'name': name,
         'description': description,
@@ -191,55 +156,15 @@ class MenuController extends StateNotifier<MenuState> {
         'isTaxFixed': isTaxFixed,
       };
 
-      await _ref.read(menuServiceProvider).updateMenu(id, updatedData);
-      state = MenuState(status: MenuActionStatus.success);
-    } catch (e) {
-      state = MenuState(
-        status: MenuActionStatus.error,
-        errorMessage: e.toString(),
-      );
-    }
+      await ref.read(menuServiceProvider).updateMenu(id, updatedData);
+    });
   }
 
   Future<void> deleteMenu(String id) async {
-    try {
-      await _ref.read(menuServiceProvider).deleteMenu(id);
-      await _ref
-          .read(storageServiceProvider)
-          .deleteImage('menus/$id/image.jpg');
-    } catch (e) {
-      // Errors can be handled more granularly if needed
-    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(menuServiceProvider).deleteMenu(id);
+      await ref.read(storageServiceProvider).deleteImage('menus/$id/image.jpg');
+    });
   }
 }
-
-final sortedMenusProvider = Provider.autoDispose<List<MenuModel>>((ref) {
-  final menuList = ref.watch(menusStreamProvider).asData?.value ?? [];
-  final filter = ref.watch(menuFilterProvider);
-
-  // Apply search and course filters
-  final filteredList = menuList.where((menu) {
-    final searchMatch =
-        filter.searchQuery.isEmpty ||
-        menu.name.toLowerCase().contains(filter.searchQuery.toLowerCase());
-    final courseMatch =
-        filter.courseId == null || menu.courseId == filter.courseId;
-    return searchMatch && courseMatch;
-  }).toList();
-
-  // Apply sorting
-  filteredList.sort((a, b) {
-    int comparison;
-    switch (filter.sortOption) {
-      case MenuSortOption.byName:
-        comparison = a.name.compareTo(b.name);
-        break;
-      case MenuSortOption.byPrice:
-        comparison = a.price.compareTo(b.price);
-        break;
-    }
-    return filter.sortOrder == SortOrder.asc ? comparison : -comparison;
-  });
-
-  return filteredList;
-});

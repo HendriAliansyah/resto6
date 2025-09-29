@@ -1,4 +1,5 @@
 // lib/views/course/widgets/course_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,26 +17,22 @@ class CourseDialog extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditing = course != null;
     final nameController = useTextEditingController(text: course?.name);
-    final descriptionController = useTextEditingController(
-      text: course?.description,
-    );
+    final descriptionController =
+        useTextEditingController(text: course?.description);
     final formKey = useMemoized(() => GlobalKey<FormState>());
-
-    final isLoading =
-        ref.watch(courseControllerProvider).status ==
-        CourseActionStatus.loading;
+    final isLoading = ref.watch(courseControllerProvider).isLoading;
 
     void submit() {
       if (formKey.currentState?.validate() ?? false) {
-        final courseController = ref.read(courseControllerProvider.notifier);
+        final notifier = ref.read(courseControllerProvider.notifier);
         if (isEditing) {
-          courseController.updateCourse(
+          notifier.updateCourse(
             courseId: course!.id,
             name: nameController.text,
             description: descriptionController.text,
           );
         } else {
-          courseController.addCourse(
+          notifier.addCourse(
             name: nameController.text,
             description: descriptionController.text,
           );

@@ -1,4 +1,5 @@
 // lib/views/order/order_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/models/order_type_model.dart';
@@ -70,17 +71,12 @@ class _TableSelectionView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tablesAsync = ref.watch(tablesStreamProvider);
     final theme = Theme.of(context);
-    final restaurantId = ref
-        .watch(currentUserProvider)
-        .asData
-        ?.value
-        ?.restaurantId;
+    final restaurantId = ref.watch(userRestaurantIdProvider);
 
     void handleTableTap(TableModel table) async {
       if (restaurantId == null) return;
 
       if (table.isOccupied) {
-        // Show a loading indicator while fetching the order
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -88,16 +84,13 @@ class _TableSelectionView extends ConsumerWidget {
         );
 
         try {
-          final args = TableOrderArgs(
+          final order = await ref.read(activeOrderProvider(
             tableId: table.id,
             restaurantId: restaurantId,
-          );
-          final order = await ref.read(activeOrderProvider(args).future);
+          ).future);
 
-          // **THE FIX IS HERE:** Guard all uses of BuildContext with a mounted check.
           if (context.mounted) {
-            Navigator.of(context).pop(); // Dismiss loading indicator
-
+            Navigator.of(context).pop(); // Dismiss loading
             if (order != null) {
               showDialog(
                 context: context,
@@ -106,23 +99,17 @@ class _TableSelectionView extends ConsumerWidget {
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text(UIMessages.couldNotFindActiveOrder),
-                ),
+                    content: Text(UIMessages.couldNotFindActiveOrder)),
               );
             }
           }
         } catch (e) {
-          // **THE FIX IS HERE:** Guard all uses of BuildContext with a mounted check.
           if (context.mounted) {
-            Navigator.of(context).pop(); // Dismiss loading indicator
+            Navigator.of(context).pop(); // Dismiss loading
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  UIMessages.errorLoadingOrder.replaceFirst(
-                    '{error}',
-                    e.toString(),
-                  ),
-                ),
+                content: Text(UIMessages.errorLoadingOrder
+                    .replaceFirst('{error}', e.toString())),
               ),
             );
           }

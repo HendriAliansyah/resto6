@@ -1,4 +1,5 @@
 // lib/views/payment/payment_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -22,35 +23,30 @@ class PaymentPage extends HookConsumerWidget {
     final amountTenderedController = useTextEditingController();
     final tipController = useTextEditingController();
 
-    // State for amounts
     final tipAmount = useState(0.0);
     final amountTendered = useState(0.0);
     final paymentState = ref.watch(paymentControllerProvider);
-    final isLoading = paymentState.status == PaymentStatus.loading;
+    final isLoading = paymentState.isLoading;
 
-    // Perform all currency calculations in cents to avoid floating-point errors.
     final grandTotalInCents = (order.grandTotal * 100).round();
     final tipInCents = (tipAmount.value * 100).round();
     final finalTotalInCents = grandTotalInCents + tipInCents;
     final amountTenderedInCents = (amountTendered.value * 100).round();
     final changeDueInCents = amountTenderedInCents - finalTotalInCents;
 
-    // Convert back to dollars only for display and final recording
     final finalTotal = finalTotalInCents / 100.0;
     final changeDue = changeDueInCents / 100.0;
 
-    ref.listen<PaymentState>(paymentControllerProvider, (prev, next) {
-      if (next.status == PaymentStatus.success) {
-        showSnackBar(context, UIMessages.paymentSuccessful);
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-      if (next.status == PaymentStatus.error) {
-        showSnackBar(
-          context,
-          next.errorMessage ?? UIMessages.errorOccurred,
-          isError: true,
-        );
-      }
+    ref.listen<AsyncValue<void>>(paymentControllerProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          showSnackBar(context, UIMessages.paymentSuccessful);
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
+        error: (error, stack) {
+          showSnackBar(context, error.toString(), isError: true);
+        },
+      );
     });
 
     void finalize() {
@@ -62,9 +58,7 @@ class PaymentPage extends HookConsumerWidget {
         return;
       }
 
-      ref
-          .read(paymentControllerProvider.notifier)
-          .finalizePayment(
+      ref.read(paymentControllerProvider.notifier).finalizePayment(
             order: order,
             amountPaid: finalTotal,
             method: selectedPaymentMethod.value,
@@ -85,7 +79,6 @@ class PaymentPage extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Order Summary Card
               Card(
                 elevation: 2,
                 child: Padding(
@@ -113,7 +106,6 @@ class PaymentPage extends HookConsumerWidget {
                         order.subtotal,
                         theme,
                       ),
-                      // Display the detailed charge breakdown
                       ...order.appliedCharges.map(
                         (charge) =>
                             _buildChargeRow(charge.name, charge.amount, theme),
@@ -130,8 +122,6 @@ class PaymentPage extends HookConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Payment Method
               Text(UIStrings.paymentMethod, style: theme.textTheme.titleLarge),
               const SizedBox(height: 16),
               SegmentedButton<PaymentMethod>(
@@ -158,17 +148,14 @@ class PaymentPage extends HookConsumerWidget {
                 },
               ),
               const SizedBox(height: 24),
-
-              // Tip, Final Total, and Change Due
               TextFormField(
                 controller: tipController,
                 decoration: const InputDecoration(
                   labelText: UIStrings.addTip,
                   prefixText: '\$',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                 ],
@@ -177,7 +164,6 @@ class PaymentPage extends HookConsumerWidget {
                 },
               ),
               const SizedBox(height: 16),
-
               _buildChargeRow(
                 UIStrings.finalTotal,
                 finalTotal,
@@ -185,7 +171,6 @@ class PaymentPage extends HookConsumerWidget {
                 isTotal: true,
               ),
               const Divider(height: 24),
-
               if (selectedPaymentMethod.value == PaymentMethod.cash) ...[
                 TextFormField(
                   controller: amountTenderedController,
@@ -193,13 +178,11 @@ class PaymentPage extends HookConsumerWidget {
                     labelText: UIStrings.amountTendered,
                     prefixText: '\$',
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d+\.?\d{0,2}'),
-                    ),
+                        RegExp(r'^\d+\.?\d{0,2}')),
                   ],
                   onChanged: (value) {
                     amountTendered.value = double.tryParse(value) ?? 0.0;
@@ -249,16 +232,15 @@ class PaymentPage extends HookConsumerWidget {
           ),
           Text(
             '\$${amount.toStringAsFixed(2)}',
-            style:
-                (isTotal || isChange
-                        ? theme.textTheme.titleLarge
-                        : theme.textTheme.bodyLarge)
-                    ?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isTotal
-                          ? theme.colorScheme.primary
-                          : (isChange ? Colors.green : null),
-                    ),
+            style: (isTotal || isChange
+                    ? theme.textTheme.titleLarge
+                    : theme.textTheme.bodyLarge)
+                ?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isTotal
+                  ? theme.colorScheme.primary
+                  : (isChange ? Colors.green : null),
+            ),
           ),
         ],
       ),
