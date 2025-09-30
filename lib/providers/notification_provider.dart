@@ -24,7 +24,8 @@ Stream<List<NotificationModel>> notificationsStream(Ref ref) {
   return Stream.value([]);
 }
 
-@riverpod
+// THE FIX IS HERE: Added `keepAlive: true` to the annotation.
+@Riverpod(keepAlive: true)
 FcmService fcmService(Ref ref) => FcmService(ref);
 
 @riverpod

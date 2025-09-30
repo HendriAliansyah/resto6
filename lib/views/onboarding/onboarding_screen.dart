@@ -22,6 +22,25 @@ class OnboardingScreen extends HookConsumerWidget {
     final formKey = useMemoized(() => GlobalKey<FormState>());
     final restaurantRequestState = ref.watch(restaurantControllerProvider);
 
+    // THE FIX IS HERE:
+    // Listen to the AuthController's state for successful sign-out.
+    ref.listen<AsyncValue<void>>(authControllerProvider, (previous, next) {
+      // When the sign-out completes (goes from loading to data), navigate.
+      if (previous is AsyncLoading && next is AsyncData) {
+        if (context.mounted) {
+          context.go(AppRoutes.login);
+        }
+      }
+
+      next.whenOrNull(
+        error: (e, __) {
+          if (context.mounted) {
+            showSnackBar(context, e.toString(), isError: true);
+          }
+        },
+      );
+    });
+
     ref.listen<AsyncValue<void>>(restaurantControllerProvider, (_, state) {
       state.whenOrNull(
         data: (_) {
@@ -56,8 +75,10 @@ class OnboardingScreen extends HookConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () =>
-                ref.read(authControllerProvider.notifier).signOut(),
+            onPressed: () {
+              // Just trigger the sign-out. The listener will handle navigation.
+              ref.read(authControllerProvider.notifier).signOut();
+            },
           ),
         ],
       ),

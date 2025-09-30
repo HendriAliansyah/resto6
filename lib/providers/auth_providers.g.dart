@@ -328,6 +328,53 @@ abstract class _$LocalSessionToken extends $Notifier<String?> {
   }
 }
 
+@ProviderFor(AuthProcessState)
+const authProcessStateProvider = AuthProcessStateProvider._();
+
+final class AuthProcessStateProvider
+    extends $NotifierProvider<AuthProcessState, bool> {
+  const AuthProcessStateProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'authProcessStateProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$authProcessStateHash();
+
+  @$internal
+  @override
+  AuthProcessState create() => AuthProcessState();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$authProcessStateHash() => r'642fd656cb0c13c9c87593221fad4da47da7a4a9';
+
+abstract class _$AuthProcessState extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final created = build();
+    final ref = this.ref as $Ref<bool, bool>;
+    final element = ref.element as $ClassProviderElement<
+        AnyNotifier<bool, bool>, bool, Object?, Object?>;
+    element.handleValue(ref, created);
+  }
+}
+
 @ProviderFor(AuthController)
 const authControllerProvider = AuthControllerProvider._();
 
@@ -339,7 +386,7 @@ final class AuthControllerProvider
           argument: null,
           retry: null,
           name: r'authControllerProvider',
-          isAutoDispose: true,
+          isAutoDispose: false,
           dependencies: null,
           $allTransitiveDependencies: null,
         );
@@ -352,7 +399,7 @@ final class AuthControllerProvider
   AuthController create() => AuthController();
 }
 
-String _$authControllerHash() => r'ce2fd3a3fb063de54ab0eb73075e7557ad3bf664';
+String _$authControllerHash() => r'3056e7631bfb8d74410a063f87792e9ecfba6573';
 
 abstract class _$AuthController extends $AsyncNotifier<void> {
   FutureOr<void> build();

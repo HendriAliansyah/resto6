@@ -41,11 +41,8 @@ Stream<AppUser?> currentUser(Ref ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final uid = authState.asData?.value?.uid;
   if (uid != null) {
-    // **THE FIX IS HERE:**
-    // We now handle the case where the user document might be null.
     return firestoreService.watchUser(uid).map((user) {
       if (user == null) {
-        // If the user document is deleted from Firestore, sign them out.
         ref.read(authServiceProvider).signOut();
       }
       return user;
@@ -69,26 +66,33 @@ class LocalSessionToken extends _$LocalSessionToken {
 }
 
 @riverpod
+class AuthProcessState extends _$AuthProcessState {
+  @override
+  bool build() => false;
+  void set(bool value) {
+    state = value;
+  }
+}
+
+@Riverpod(keepAlive: true)
 class AuthController extends _$AuthController {
   @override
   FutureOr<void> build() {
     // No-op
   }
 
-  // Helper method to safely update state after async operations
   Future<void> _run(Future<void> Function() action) async {
     state = const AsyncLoading();
     try {
       await action();
-      // CORRECTED: Check `ref.mounted` before updating the state
       if (ref.mounted) {
         state = const AsyncData(null);
       }
     } catch (e, st) {
-      // CORRECTED: Check `ref.mounted` before updating the state
       if (ref.mounted) {
         state = AsyncError(e, st);
       }
+      rethrow;
     }
   }
 
@@ -109,29 +113,71 @@ class AuthController extends _$AuthController {
         }
       });
 
-  Future<void> signIn({required String email, required String password}) =>
-      _run(() async {
+  Future<void> signIn({required String email, required String password}) async {
+    ref.read(authProcessStateProvider.notifier).set(true);
+    try {
+      await _run(() async {
         final userCredential = await ref
             .read(authServiceProvider)
             .signInWithEmailAndPassword(email: email, password: password);
         final user = userCredential.user;
         if (user != null) {
           final sessionToken = const Uuid().v4();
-          await ref
-              .read(firestoreServiceProvider)
-              .updateUserSessionToken(uid: user.uid, token: sessionToken);
-          await ref.read(fcmServiceProvider).updateToken();
+          String? fcmToken;
+
+          final results = await Future.wait([
+            ref
+                .read(firestoreServiceProvider)
+                .updateUserSessionToken(uid: user.uid, token: sessionToken),
+            ref.read(fcmServiceProvider).updateToken(uid: user.uid),
+          ]);
+          fcmToken = results[1] as String?;
+
+          const timeout = Duration(seconds: 5);
+          final stopwatch = Stopwatch()..start();
+
+          while (stopwatch.elapsed < timeout) {
+            ref.invalidate(currentUserProvider);
+            final appUser = await ref.read(currentUserProvider.future);
+            if (appUser?.sessionToken == sessionToken &&
+                appUser?.fcmToken == fcmToken) {
+              // THE FIX IS HERE (1/2): Added 0.5 second delay on successful login sync.
+              await Future.delayed(const Duration(milliseconds: 500));
+              return;
+            }
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
+
+          await ref.read(authServiceProvider).signOut();
+          throw Exception('Login timed out: Failed to synchronize session.');
         }
       });
+    } finally {
+      if (ref.mounted) {
+        ref.read(authProcessStateProvider.notifier).set(false);
+      }
+    }
+  }
 
   Future<void> sendPasswordResetEmail({required String email}) => _run(
       () => ref.read(authServiceProvider).sendPasswordResetEmail(email: email));
 
-  Future<void> signOut() => _run(() async {
+  Future<void> signOut() async {
+    ref.read(authProcessStateProvider.notifier).set(true);
+    try {
+      await _run(() async {
         await ref.read(presenceServiceProvider).goOffline();
         await ref.read(fcmServiceProvider).deleteToken();
         await ref.read(authServiceProvider).signOut();
+        // THE FIX IS HERE (2/2): Added 1 second delay on successful logout.
+        await Future.delayed(const Duration(seconds: 1));
       });
+    } finally {
+      if (ref.mounted) {
+        ref.read(authProcessStateProvider.notifier).set(false);
+      }
+    }
+  }
 
   Future<void> createRestaurantAndAssignOwner({
     required String restaurantName,

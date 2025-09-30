@@ -6,7 +6,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:resto2/providers/auth_providers.dart';
 import 'package:resto2/providers/notification_provider.dart';
 
-// The FcmService class remains the same, as its logic is sound.
 class FcmService {
   final Ref _ref;
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
@@ -16,10 +15,18 @@ class FcmService {
   }
 
   Future<void> _init() async {
-    await _fcm.requestPermission(alert: true, badge: true, sound: true);
-    await updateToken();
+    try {
+      await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    } catch (e) {
+      debugPrint("Could not request FCM permission: $e");
+    }
 
-    _fcm.onTokenRefresh.listen(_saveTokenToFirestore);
+    _fcm.onTokenRefresh.listen((token) {
+      final user = _ref.read(currentUserProvider).asData?.value;
+      if (user != null) {
+        _saveTokenToFirestore(token: token, uid: user.uid);
+      }
+    });
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Got a message whilst in the foreground!');
@@ -32,33 +39,38 @@ class FcmService {
     });
   }
 
-  Future<void> updateToken() async {
+  // THE FIX IS HERE: The method now correctly returns the fetched token.
+  Future<String?> updateToken({required String uid}) async {
     final token = await _fcm.getToken();
-    debugPrint("FCM Token updated: $token");
-    await _saveTokenToFirestore(token);
+    debugPrint("FCM Token fetched for user $uid: $token");
+    await _saveTokenToFirestore(token: token, uid: uid);
+    return token;
   }
 
-  Future<void> _saveTokenToFirestore(String? token) async {
-    // Add this check to prevent the exception
+  Future<void> _saveTokenToFirestore(
+      {required String? token, required String uid}) async {
     if (!_ref.mounted || token == null) return;
-
-    // We use read here because we don't need to react to changes, just get the current value.
-    final user = _ref.read(currentUserProvider).asData?.value;
-    if (user != null) {
-      if (user.fcmToken != token) {
-        // Another check is useful after an await, though not strictly necessary here
-        if (!_ref.mounted) return;
-        await _ref
-            .read(firestoreServiceProvider)
-            .updateUserFcmToken(uid: user.uid, token: token);
-      }
+    try {
+      await _ref
+          .read(firestoreServiceProvider)
+          .updateUserFcmToken(uid: uid, token: token);
+    } catch (e) {
+      debugPrint("Error saving refreshed FCM token: $e");
     }
   }
 
   Future<void> deleteToken() async {
-    await _fcm.deleteToken();
-    debugPrint(
-      "FCM device token deleted. Firestore token will be cleared by the backend.",
-    );
+    final user = _ref.read(currentUserProvider).asData?.value;
+    try {
+      if (user != null) {
+        await _ref
+            .read(firestoreServiceProvider)
+            .updateUserFcmToken(uid: user.uid, token: null);
+      }
+      await _fcm.deleteToken();
+      debugPrint("FCM device token deleted and cleared from Firestore.");
+    } catch (e) {
+      debugPrint("Error deleting FCM token: $e");
+    }
   }
 }

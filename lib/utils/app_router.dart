@@ -38,6 +38,8 @@ import 'constants.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateChangeProvider);
   final appUser = ref.watch(currentUserProvider);
+  // THE FIX IS HERE: Watch the new provider.
+  final isAuthProcessing = ref.watch(authProcessStateProvider);
 
   return GoRouter(
     initialLocation: '/',
@@ -158,6 +160,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (BuildContext context, GoRouterState state) {
+      // THE FIX IS HERE: Pause redirection if auth is processing.
+      if (isAuthProcessing) return null;
+
       final onSplash = state.matchedLocation == '/';
       final userIsAuthenticating = state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.register ||
