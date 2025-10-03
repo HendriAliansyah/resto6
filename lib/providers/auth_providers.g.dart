@@ -328,6 +328,52 @@ abstract class _$LocalSessionToken extends $Notifier<String?> {
   }
 }
 
+@ProviderFor(IsLoggingOut)
+const isLoggingOutProvider = IsLoggingOutProvider._();
+
+final class IsLoggingOutProvider extends $NotifierProvider<IsLoggingOut, bool> {
+  const IsLoggingOutProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'isLoggingOutProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$isLoggingOutHash();
+
+  @$internal
+  @override
+  IsLoggingOut create() => IsLoggingOut();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$isLoggingOutHash() => r'cd80412625e8e645188079869d3708d6c4b221f7';
+
+abstract class _$IsLoggingOut extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final created = build();
+    final ref = this.ref as $Ref<bool, bool>;
+    final element = ref.element as $ClassProviderElement<
+        AnyNotifier<bool, bool>, bool, Object?, Object?>;
+    element.handleValue(ref, created);
+  }
+}
+
 @ProviderFor(AuthProcessState)
 const authProcessStateProvider = AuthProcessStateProvider._();
 
@@ -399,7 +445,7 @@ final class AuthControllerProvider
   AuthController create() => AuthController();
 }
 
-String _$authControllerHash() => r'3056e7631bfb8d74410a063f87792e9ecfba6573';
+String _$authControllerHash() => r'c35422d11902e9bb7e36edda8a11567f98bd026b';
 
 abstract class _$AuthController extends $AsyncNotifier<void> {
   FutureOr<void> build();

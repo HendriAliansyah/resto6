@@ -41,7 +41,7 @@ final class UserSettingsProvider extends $FunctionalProvider<
   }
 }
 
-String _$userSettingsHash() => r'f48060724f6cc775de9ee3abd66f247ae640e27c';
+String _$userSettingsHash() => r'3497ac1dd29d012dc20a97107ef259c9a0f580da';
 
 @ProviderFor(ThemeModeController)
 const themeModeControllerProvider = ThemeModeControllerProvider._();

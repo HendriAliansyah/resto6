@@ -15,6 +15,11 @@ NotificationService notificationService(Ref ref) => NotificationService();
 
 @riverpod
 Stream<List<NotificationModel>> notificationsStream(Ref ref) {
+  // THE FIX IS HERE (3/4): Watch the logging out flag.
+  final isLoggingOut = ref.watch(isLoggingOutProvider);
+  // If logging out, immediately return an empty stream to close the Firestore listener.
+  if (isLoggingOut) return Stream.value([]);
+
   final userId = ref.watch(currentUserProvider).asData?.value?.uid;
   if (userId != null) {
     return ref
@@ -24,7 +29,6 @@ Stream<List<NotificationModel>> notificationsStream(Ref ref) {
   return Stream.value([]);
 }
 
-// THE FIX IS HERE: Added `keepAlive: true` to the annotation.
 @Riverpod(keepAlive: true)
 FcmService fcmService(Ref ref) => FcmService(ref);
 

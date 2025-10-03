@@ -90,7 +90,7 @@ final class NotificationsStreamProvider extends $FunctionalProvider<
 }
 
 String _$notificationsStreamHash() =>
-    r'1acd8f6d5d373bf538e6f7039bb6811c8df0dd57';
+    r'9e5cced0e2fd9db0176f86547e2831c6f70f269c';
 
 @ProviderFor(fcmService)
 const fcmServiceProvider = FcmServiceProvider._();

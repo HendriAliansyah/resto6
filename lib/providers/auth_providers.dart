@@ -1,5 +1,6 @@
 // lib/providers/auth_providers.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -65,6 +66,14 @@ class LocalSessionToken extends _$LocalSessionToken {
   }
 }
 
+// THE FIX IS HERE (1/4): A new provider to signal the start of the logout process.
+@riverpod
+class IsLoggingOut extends _$IsLoggingOut {
+  @override
+  bool build() => false;
+  void set(bool value) => state = value;
+}
+
 @riverpod
 class AuthProcessState extends _$AuthProcessState {
   @override
@@ -123,33 +132,37 @@ class AuthController extends _$AuthController {
         final user = userCredential.user;
         if (user != null) {
           final sessionToken = const Uuid().v4();
-          String? fcmToken;
 
-          final results = await Future.wait([
+          final completer = Completer<void>();
+          final listener = ref.listen<AsyncValue<AppUser?>>(
+            currentUserProvider,
+            (previous, next) {
+              final user = next.asData?.value;
+              if (user?.sessionToken == sessionToken) {
+                if (!completer.isCompleted) {
+                  completer.complete();
+                }
+              }
+            },
+            fireImmediately: true,
+          );
+
+          await Future.wait([
             ref
                 .read(firestoreServiceProvider)
                 .updateUserSessionToken(uid: user.uid, token: sessionToken),
             ref.read(fcmServiceProvider).updateToken(uid: user.uid),
           ]);
-          fcmToken = results[1] as String?;
 
-          const timeout = Duration(seconds: 5);
-          final stopwatch = Stopwatch()..start();
+          await completer.future.timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception(
+                  'Login timed out: Failed to synchronize session.');
+            },
+          );
 
-          while (stopwatch.elapsed < timeout) {
-            ref.invalidate(currentUserProvider);
-            final appUser = await ref.read(currentUserProvider.future);
-            if (appUser?.sessionToken == sessionToken &&
-                appUser?.fcmToken == fcmToken) {
-              // THE FIX IS HERE (1/2): Added 0.5 second delay on successful login sync.
-              await Future.delayed(const Duration(milliseconds: 500));
-              return;
-            }
-            await Future.delayed(const Duration(milliseconds: 200));
-          }
-
-          await ref.read(authServiceProvider).signOut();
-          throw Exception('Login timed out: Failed to synchronize session.');
+          listener.close();
         }
       });
     } finally {
@@ -164,15 +177,21 @@ class AuthController extends _$AuthController {
 
   Future<void> signOut() async {
     ref.read(authProcessStateProvider.notifier).set(true);
+    // THE FIX IS HERE (2/4): Set the flag to true before doing anything else.
+    ref.read(isLoggingOutProvider.notifier).set(true);
     try {
+      // Give Riverpod a brief moment to propagate the state change and for
+      // dependent providers to tear down their Firestore listeners.
+      await Future.delayed(const Duration(milliseconds: 50));
+
       await _run(() async {
         await ref.read(presenceServiceProvider).goOffline();
         await ref.read(fcmServiceProvider).deleteToken();
         await ref.read(authServiceProvider).signOut();
-        // THE FIX IS HERE (2/2): Added 1 second delay on successful logout.
-        await Future.delayed(const Duration(seconds: 1));
       });
     } finally {
+      // Reset the flag after the process is complete.
+      ref.read(isLoggingOutProvider.notifier).set(false);
       if (ref.mounted) {
         ref.read(authProcessStateProvider.notifier).set(false);
       }

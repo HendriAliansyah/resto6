@@ -9,6 +9,10 @@ part 'theme_provider.g.dart';
 
 @riverpod
 Stream<UserSettings> userSettings(Ref ref) {
+  // THE FIX IS HERE (4/4): Watch the logging out flag.
+  final isLoggingOut = ref.watch(isLoggingOutProvider);
+  if (isLoggingOut) return Stream.value(const UserSettings());
+
   final user = ref.watch(currentUserProvider).asData?.value;
   if (user == null) {
     return Stream.value(const UserSettings());
@@ -28,15 +32,12 @@ class ThemeModeController extends _$ThemeModeController {
     final user = ref.read(currentUserProvider).asData?.value;
     if (user == null) return;
 
-    // The state will update automatically via the userSettingsProvider stream
-    // once the database write is complete.
     await ref
         .read(firestoreServiceProvider)
         .updateUserTheme(user.uid, themeMode.name);
   }
 }
 
-// Provider to hold the theme being previewed on the settings page.
 @riverpod
 class PreviewThemeMode extends _$PreviewThemeMode {
   @override
