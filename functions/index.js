@@ -1,12 +1,15 @@
 // functions/index.js
 
-const { onDocumentUpdated, onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { onValueWritten } = require("firebase-functions/v2/database");
-const { initializeApp } = require("firebase-admin/app");
-const { getAuth } = require("firebase-admin/auth");
-const { getFirestore } = require("firebase-admin/firestore");
-const { getMessaging } = require("firebase-admin/messaging");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const {
+  onDocumentUpdated,
+  onDocumentCreated,
+} = require("firebase-functions/v2/firestore");
+const {onValueWritten} = require("firebase-functions/v2/database");
+const {initializeApp} = require("firebase-admin/app");
+const {getAuth} = require("firebase-admin/auth");
+const {getFirestore} = require("firebase-admin/firestore");
+const {getMessaging} = require("firebase-admin/messaging");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 
 initializeApp();
 
@@ -18,8 +21,8 @@ exports.onUserPresenceChange = onValueWritten("status/{uid}", async (event) => {
 
   // If the user has gone offline (which includes signing out)
   if (status && status.state === "offline") {
-    // Get the session token of the device that just went offline.
-    const offlineToken = event.data.before.val()?.sessionToken;
+    const beforeData = event.data.before.val();
+    const offlineToken = beforeData ? beforeData.sessionToken : null;
     if (!offlineToken) {
       console.log(`User ${uid} went offline but had no session token.`);
       return;
@@ -37,17 +40,16 @@ exports.onUserPresenceChange = onValueWritten("status/{uid}", async (event) => {
 
         const currentToken = userDoc.data().sessionToken;
 
-        // **THE FIX IS HERE:**
-        // We now ONLY clear the sessionToken. The fcmToken will persist
-        // so the user can receive notifications when the app is in the background.
         if (currentToken === offlineToken) {
           transaction.update(userDocRef, {
             sessionToken: null,
-            // fcmToken: null, // <-- THIS LINE HAS BEEN REMOVED
           });
           console.log(`Session token cleared for user: ${uid}`);
         } else {
-          console.log(`Session token for user ${uid} has already been updated. No action taken.`);
+          console.log(
+              `Session token for user ${uid} has already been updated. ` +
+            "No action taken.",
+          );
         }
       });
     } catch (error) {
@@ -56,34 +58,37 @@ exports.onUserPresenceChange = onValueWritten("status/{uid}", async (event) => {
   }
 });
 
+exports.onUserStatusChange = onDocumentUpdated(
+    "users/{userId}",
+    async (event) => {
+      const beforeData = event.data.before.data();
+      const afterData = event.data.after.data();
+      const uid = event.params.userId;
 
-exports.onUserStatusChange = onDocumentUpdated("users/{userId}", async (event) => {
-  const beforeData = event.data.before.data();
-  const afterData = event.data.after.data();
-  const uid = event.params.userId;
+      if (beforeData.isDisabled === afterData.isDisabled) {
+        return null;
+      }
 
-  if (beforeData.isDisabled === afterData.isDisabled) {
-    return null;
-  }
+      if (afterData.isDisabled === true) {
+        try {
+          await getAuth().revokeRefreshTokens(uid);
+          await getAuth().updateUser(uid, {disabled: true});
+        } catch (error) {
+          console.error(`Error disabling user ${uid}`, error);
+        }
+      } else if (afterData.isDisabled === false) {
+        console.log(
+            `Enabling user in Firebase Auth: ${uid}`,
+        );
+        try {
+          await getAuth().updateUser(uid, {disabled: false});
+        } catch (error) {
+          console.error(`Error enabling user ${uid}`, error);
+        }
+      }
 
-  if (afterData.isDisabled === true) {
-    try {
-      await getAuth().revokeRefreshTokens(uid);
-      await getAuth().updateUser(uid, { disabled: true });
-    } catch (error) {
-      console.error(`Error disabling user ${uid}`, error);
-    }
-  } else if (afterData.isDisabled === false) {
-    console.log(`Enabling user in Firebase Auth: ${uid}`);
-    try {
-      await getAuth().updateUser(uid, { disabled: false });
-    } catch (error) {
-      console.error(`Error enabling user ${uid}`, error);
-    }
-  }
-
-  return null;
-});
+      return null;
+    });
 
 /**
  * Helper function to create a notification body from the notification data.
@@ -91,7 +96,7 @@ exports.onUserStatusChange = onDocumentUpdated("users/{userId}", async (event) =
  * @return {string} The notification body text.
  */
 function getNotificationBody(notificationData) {
-  const { type, wasApproved, itemName, userDisplayName } = notificationData;
+  const {type, wasApproved, itemName, userDisplayName} = notificationData;
   switch (type) {
     case "joinRequest":
       return "A new user has requested to join your restaurant.";
@@ -106,61 +111,65 @@ function getNotificationBody(notificationData) {
   }
 }
 
-// This function triggers when a new notification is created for a user.
-exports.sendPushNotification = onDocumentCreated("users/{userId}/notifications/{notificationId}", async (event) => {
-  const userId = event.params.userId;
-  const notificationData = event.data.data();
+exports.sendPushNotification = onDocumentCreated(
+    "users/{userId}/notifications/{notificationId}",
+    async (event) => {
+      const userId = event.params.userId;
+      const notificationData = event.data.data();
 
-  // Get the user's document to retrieve their FCM token
-  const userDocRef = getFirestore().collection("users").doc(userId);
-  const userDoc = await userDocRef.get();
+      // Get the user's document to retrieve their FCM token
+      const userDocRef = getFirestore().collection("users").doc(userId);
+      const userDoc = await userDocRef.get();
 
-  if (!userDoc.exists) {
-    console.log(`User document not found for userId: ${userId}`);
-    return;
-  }
+      if (!userDoc.exists) {
+        console.log(`User document not found for userId: ${userId}`);
+        return;
+      }
 
-  const fcmToken = userDoc.data().fcmToken;
+      const fcmToken = userDoc.data().fcmToken;
 
-  if (!fcmToken) {
-    console.log(`FCM token not found for user: ${userId}`);
-    return;
-  }
+      if (!fcmToken) {
+        console.log(`FCM token not found for user: ${userId}`);
+        return;
+      }
 
-  // Construct the push notification payload
-  const payload = {
-    token: fcmToken,
-    notification: {
-      title: notificationData.title,
-      body: getNotificationBody(notificationData),
+      // Construct the push notification payload
+      const payload = {
+        token: fcmToken,
+        notification: {
+          title: notificationData.title,
+          body: getNotificationBody(notificationData),
+        },
+        data: {
+          type: notificationData.type || "generic",
+        },
+      };
+
+      try {
+        console.log(`Sending notification to user: ${userId}`);
+        await getMessaging().send(payload);
+        console.log("Successfully sent push notification.");
+      } catch (error) {
+        console.error("Error sending push notification:", error);
+        if (error.code === "messaging/registration-token-not-registered") {
+          console.log(
+              `Invalid token for user ${userId}. Deleting it from Firestore.`,
+          );
+          await userDocRef.update({fcmToken: null});
+        }
+      }
     },
-    data: {
-      // You can send additional data here for the app to handle on tap
-      type: notificationData.type || "generic",
-    },
-  };
-
-  try {
-    console.log(`Sending notification to user: ${userId}`);
-    await getMessaging().send(payload);
-    console.log("Successfully sent push notification.");
-  } catch (error) {
-    console.error("Error sending push notification:", error);
-    // If the token is no longer registered, remove it from the user's document
-    if (error.code === "messaging/registration-token-not-registered") {
-      console.log(`Invalid token for user ${userId}. Deleting it from Firestore.`);
-      await userDocRef.update({ fcmToken: null });
-    }
-  }
-});
-
+);
 
 exports.requestToJoinRestaurant = onCall(async (request) => {
-  const { restaurantId } = request.data;
+  const {restaurantId} = request.data;
   const user = request.auth;
 
   if (!user) {
-    throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
+    throw new HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated.",
+    );
   }
 
   const db = getFirestore();
@@ -171,11 +180,12 @@ exports.requestToJoinRestaurant = onCall(async (request) => {
     throw new HttpsError(
         "not-found",
         "No restaurant with this ID exists.",
-        { reason: "RESTAURANT_NOT_FOUND" },
+        {reason: "RESTAURANT_NOT_FOUND"},
     );
   }
 
-  const userProfile = (await db.collection("users").doc(user.uid).get()).data();
+  const userDoc = await db.collection("users").doc(user.uid).get();
+  const userProfile = userDoc.data();
   const joinRequest = {
     userId: user.uid,
     userDisplayName: userProfile.displayName || "No Name",
@@ -192,7 +202,7 @@ exports.requestToJoinRestaurant = onCall(async (request) => {
 
   if (adminQuery.empty) {
     console.log("No admins found for restaurant:", restaurantId);
-    return { success: true };
+    return {success: true};
   }
 
   const batch = db.batch();
@@ -211,5 +221,5 @@ exports.requestToJoinRestaurant = onCall(async (request) => {
 
   await batch.commit();
 
-  return { success: true };
+  return {success: true};
 });
